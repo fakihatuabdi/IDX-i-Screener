@@ -1,10 +1,10 @@
 # Watchlist IHSG - Netlify
 
-Dashboard watchlist IHSG yang update otomatis setiap hari jam 08:00 WIB, tanpa perlu trigger manual. Backend berjalan sebagai Netlify Scheduled Function, data disimpan di Netlify Blobs, dan frontend (`public/index.html`) membacanya lewat endpoint `/api/dashboard`.
+Dashboard watchlist IHSG yang update otomatis tiap hari bursa (Senin-Jumat) jam 19:00 WIB (setelah bursa tutup), tanpa perlu trigger manual. Backend berjalan sebagai Netlify Scheduled Function, data disimpan di Netlify Blobs, dan frontend (`public/index.html`) membacanya lewat endpoint `/api/dashboard`.
 
 ## Arsitektur singkat
 
-- `netlify/functions/daily-update.mjs` - Scheduled Function, jalan otomatis tiap `01:00 UTC` (= `08:00 WIB`). Ambil data dari Zapi (TradingView + IDX resmi) dan arjum.com (broker summary), hitung semua indikator teknikal secara deterministik, lalu panggil Claude API hanya untuk menulis narasi teks. Hasilnya disimpan ke Netlify Blobs.
+- `netlify/functions/daily-update.mjs` - Scheduled Function, jalan otomatis tiap `12:00 UTC` (= `19:00 WIB`) di hari Senin-Jumat saja (tidak jalan Sabtu/Minggu karena bursa libur). Ambil data dari Zapi (TradingView + IDX resmi, termasuk broker summary), hitung semua indikator teknikal secara deterministik, lalu panggil Claude API hanya untuk menulis narasi teks. Hasilnya disimpan ke Netlify Blobs.
 - `netlify/functions/get-dashboard.mjs` - Function biasa yang dibaca frontend, isinya cuma membaca data terakhir dari Blobs.
 - `public/index.html` - dashboard statis, fetch `/api/dashboard` saat dibuka dan setiap 60 detik.
 
@@ -47,22 +47,23 @@ Ganti `<username>` dan nama repo sesuai punya Anda. Repo boleh **private**, tida
 
 ### 4. Set environment variables di Netlify
 
-Di dashboard site Netlify: **Site configuration -> Environment variables -> Add a variable**. Tambahkan 4 ini:
+Di dashboard site Netlify: **Site configuration -> Environment variables -> Add a variable**. Tambahkan 3 ini:
 
 | Key | Value |
 |---|---|
 | `ZAPI_KEY` | key Zapi Anda (`zpi_...`) |
-| `ARJUM_KEY` | key arjum.com Anda |
 | `ANTHROPIC_API_KEY` | key dari langkah 1 (`sk-ant-...`) |
 | `ANTHROPIC_MODEL` | (opsional) default `claude-haiku-4-5-20251001`, bisa ganti `claude-sonnet-5` kalau mau narasi lebih kaya |
+
+(`ARJUM_KEY` sudah tidak dipakai lagi - broker summary sekarang diambil dari Zapi juga.)
 
 Setelah menambahkan env var, trigger **Deploy -> Trigger deploy -> Clear cache and deploy site** sekali supaya function membaca env var barunya.
 
 ### 5. Pastikan Scheduled Functions aktif
 
-Netlify mendeteksi `daily-update.mjs` sebagai Scheduled Function otomatis dari kode `export default schedule("0 1 * * *", handler)` - tidak perlu setting tambahan. Anda bisa cek di tab **Functions** di dashboard Netlify, akan ada function `daily-update` dengan label "Scheduled".
+Netlify mendeteksi `daily-update.mjs` sebagai Scheduled Function otomatis dari kode `export default schedule("0 12 * * 1-5", handler)` - tidak perlu setting tambahan. Anda bisa cek di tab **Functions** di dashboard Netlify, akan ada function `daily-update` dengan label "Scheduled".
 
-### 6. Test manual sebelum menunggu jam 08:00
+### 6. Test manual sebelum menunggu jam 19:00
 
 Jangan tunggu jadwal otomatis untuk verifikasi pertama kali. Buka:
 
@@ -83,6 +84,7 @@ Hosting InfinityFree yang lama tidak dipakai lagi untuk jalur ini karena tidak p
 ## Kuota API (Zapi Pro)
 
 Dengan Zapi sudah di-upgrade ke Pro, pipeline sekarang menggunakan kuota lebih besar per hari:
-- Screener 300 saham + foreign-flow 4 halaman (800 baris) sekali jalan - untuk sektor & ranking yang lebih representatif.
-- Shortlist penuh 20 saham/hari (10 Buy + 5 Hold + 5 Sell, sesuai spesifikasi dashboard), masing-masing diambil chart 210 hari + rating teknikal TradingView asli (dipakai khusus untuk verdict strategi Investment).
-- Total sekitar 300 + 4 + 1 + 1 + (20 x 2) = ~347 call/hari kalau dijalankan sekali sehari - jauh di bawah kuota bulanan Pro. Kalau suatu saat mau menambah shortlist atau menjalankan lebih dari sekali sehari, sesuaikan angka `SHORTLIST_BUY/HOLD/SELL` dan jumlah halaman foreign-flow di `daily-update.mjs`.
+- Screener 300 saham + foreign-flow 4 halaman (800 baris) + chart intraday IHSG, sekali jalan - untuk sektor & ranking yang lebih representatif.
+- Shortlist penuh 20 saham/hari (10 Buy + 5 Hold + 5 Sell, sesuai spesifikasi dashboard), masing-masing diambil: chart harian 210 hari (indikator), chart intraday per jam (untuk grafik di kartu), dan rating teknikal TradingView asli (dipakai khusus untuk verdict strategi Investment).
+- Broker summary (top 10 broker paling aktif) untuk 1 saham unggulan.
+- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 = ~367 call/hari kalau dijalankan sekali sehari - jauh di bawah kuota bulanan Pro. Kalau suatu saat mau menambah shortlist atau menjalankan lebih dari sekali sehari, sesuaikan angka `SHORTLIST_BUY/HOLD/SELL` dan jumlah halaman foreign-flow di `daily-update.mjs`.

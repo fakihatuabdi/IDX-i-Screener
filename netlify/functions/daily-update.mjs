@@ -1,5 +1,5 @@
 // Netlify Scheduled Function - runs automatically on the cron below (UTC!).
-// 08:00 WIB = 01:00 UTC -> "0 1 * * *"
+// Runs after market close, not before open: 19:00 WIB = 12:00 UTC, weekdays only -> "0 12 * * 1-5"
 // NOTE: Netlify does not allow invoking a schedule()-wrapped function directly
 // over HTTP (calling it manually returns 502 before our code even runs) - for
 // manual testing use run-update.mjs instead, which shares the same pipeline.
@@ -22,5 +22,7 @@ async function handler() {
   }
 }
 
-// Runs automatically at 01:00 UTC = 08:00 WIB every day.
-export default schedule("0 1 * * *", handler);
+// Runs automatically at 12:00 UTC = 19:00 WIB, Monday-Friday only (1-5 = Mon-Fri in
+// cron's day-of-week field) - IDX doesn't trade on weekends, so there's no new session
+// to report on Saturday/Sunday.
+export default schedule("0 12 * * 1-5", handler);

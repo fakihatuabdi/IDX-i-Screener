@@ -42,6 +42,37 @@ export function chart({ symbol, count = 210, resolution = "1D" }) {
 }
 
 /**
+ * Real fundamentals (dividend yield, payout ratio, debt/equity, ROE, balance sheet
+ * figures) for one stock, straight from TradingView. Market cap and PE TTM are NOT
+ * here - we already have those from screener(), no need for another call.
+ */
+export function financials({ symbol }) {
+  return callZapi("/v1/finance:tradingview/financials", { symbol, market: "indonesia" }).then((d) => d);
+}
+
+/** Recent IDX exchange news/announcements. Optional `q` keyword filter. */
+export function idxNews({ length = 15, q } = {}) {
+  const params = { length };
+  if (q) params.q = q;
+  return callZapi("/v1/finance:idx/news", params).then((d) => d.data);
+}
+
+/** Real corporate actions (dividend, rights, split, listing/delisting) for one stock, straight from IDX. */
+export function corporateActions({ code }) {
+  return callZapi("/v1/finance:idx/corporate-actions", { code }).then((d) => d.items);
+}
+
+/**
+ * Per-broker trading activity for one stock's last session, straight from IDX (via Zapi).
+ * NOTE: this is combined activity (buy+sell together) per broker - IDX/Zapi does not expose
+ * a buy-side vs sell-side split at this granularity, so this can only rank brokers by how
+ * active they were, not classify them as net buyers/sellers.
+ */
+export function brokerSummary({ symbol, length = 200 }) {
+  return callZapi("/v1/finance:idx/broker-summary", { symbol, length }).then((d) => d.data);
+}
+
+/**
  * TradingView's own technical-rating summary for a symbol (Strong Buy/Buy/Neutral/Sell/Strong Sell).
  * Used only for the Investment strategy, which requires this to be Buy/Strong Buy - never derived
  * from our own SMA rule alone. Callers should wrap this in try/catch: a single failed ticker must

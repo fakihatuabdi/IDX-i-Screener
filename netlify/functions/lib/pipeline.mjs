@@ -1,12 +1,11 @@
 // Shared pipeline logic: fetch real data, compute indicators deterministically,
 // ask Claude only for narrative text, and store the result in Netlify Blobs.
-// Used by BOTH daily-update.mjs (the 08:00 WIB Scheduled Function) and
+// Used by BOTH daily-update.mjs (the 19:00 WIB Scheduled Function, after market close) and
 // run-update.mjs (a plain on-demand function for manual testing) - Netlify
 // does not allow invoking a schedule()-wrapped function directly over HTTP,
 // so the manual-trigger path needs its own thin wrapper around this same logic.
 import { getStore } from "@netlify/blobs";
 import * as zapi from "./zapi.mjs";
-import * as arjum from "./arjum.mjs";
 import { computeIndicators } from "./indicators.mjs";
 import { writeNarrative } from "./claude.mjs";
 
@@ -94,6 +93,15 @@ export async function buildDashboard() {
     change_pct: Math.round((composite.Change / composite.Previous) * 10000) / 100,
     prev_close: composite.Previous,
     candles: ihsgIntraday,
+    // "All Market" totals (all boards combined) - real, straight from IDX's own index-summary
+    // row, no extra call needed. A "Regular board only" breakdown was not found from any
+    // working endpoint/param, so it's intentionally left out rather than guessed.
+    market_stats: {
+      lot: Math.round(composite.Volume / 100),
+      value: composite.Value,
+      frequency: composite.Frequency,
+      number_of_stock: composite.NumberOfStock,
+    },
   };
 
   // ---- 2. Sector aggregates (real, deterministic - not sampled) ----
@@ -152,7 +160,22 @@ export async function buildDashboard() {
         console.error(`intraday chart(${s.ticker}) unavailable, falling back to daily candles:`, e.message);
         intradayCandles = ind.candles20.slice(-7);
       }
-      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap), intradayCandles };
+      // Fundamentals: background info only, NEVER used for screening/ranking (that's the
+      // technical/flow logic above). Market cap + PE TTM already came from screener() -
+      // no extra call needed for those. Everything else that isn't real from the API is
+      // left null and simply omitted on the card, never estimated.
+      let fundamentals = { market_cap: s.marketCap ?? null, pe_ttm: s.peRatio ?? null };
+      try {
+        const fin = await withRetry(() => zapi.financials({ symbol: `IDX:${s.ticker}` }));
+        fundamentals.dividend_yield = fin.dividendYieldPercent ?? null;
+        fundamentals.payout_ratio = fin.dividendPayoutRatioPercent ?? null;
+        fundamentals.debt_to_equity = fin.debtToEquity ?? null;
+        fundamentals.roe = fin.returnOnEquityPercent ?? null;
+        fundamentals.pb_ratio = fin.totalEquity && s.marketCap ? Math.round((s.marketCap / fin.totalEquity) * 100) / 100 : null;
+      } catch (e) {
+        console.error(`financials(${s.ticker}) unavailable, fundamentals limited to market cap/PE:`, e.message);
+      }
+      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap), intradayCandles, fundamentals };
     } catch (e) {
       console.error(`chart(${s.ticker}) unavailable, replacing with next candidate:`, e.message);
       return null;
@@ -194,20 +217,66 @@ export async function buildDashboard() {
 
   const withIndicators = [...buyPicks, ...holdPicks, ...sellPicks];
 
-  // ---- 5. Broker/bandarmology highlight on the single biggest net-buy pick ----
-  let bandarmology = null;
+  // ---- 5. Top 10 most active brokers (real IDX data via Zapi) on the single biggest net-buy pick.
+  // NOTE: IDX/Zapi only exposes combined (buy+sell together) per-broker activity for a stock's
+  // session, not a true buy-side vs sell-side split - so this ranks brokers by how active they
+  // were (transaction value), not "net buyers vs net sellers".
+  let activeBrokers = null;
   try {
     const top = buyPicks[0];
-    const brokers = await arjum.brokerSummary(top.ticker);
-    const sorted = [...brokers].sort((a, b) => b.nval - a.nval);
-    bandarmology = {
-      ticker: top.ticker,
-      top_buyers: sorted.slice(0, 3).map((b) => ({ broker: b.broker_code, value: (b.nval / 1e9).toFixed(2) + "B" })),
-      top_sellers: sorted.slice(-3).reverse().map((b) => ({ broker: b.broker_code, value: (b.nval / 1e9).toFixed(2) + "B" })),
-    };
+    const brokers = await withRetry(() => zapi.brokerSummary({ symbol: top.ticker, length: 200 }));
+    const top10 = [...brokers]
+      .sort((a, b) => b.Value - a.Value)
+      .slice(0, 10)
+      .map((b) => ({
+        broker: b.IDFirm,
+        name: b.FirmName,
+        volume: b.Volume,
+        value: b.Value,
+        frequency: b.Frequency,
+        avg_price: b.Volume ? Math.round(b.Value / b.Volume) : null,
+      }));
+    activeBrokers = { ticker: top.ticker, date: brokers[0] ? brokers[0].Date.slice(0, 10) : null, top10 };
   } catch (e) {
-    console.error("bandarmology fetch failed, skipping:", e.message);
+    console.error("active broker summary fetch failed, skipping:", e.message);
   }
+
+  // ---- 5b. Real exchange news + corporate actions (dividend/rights/split) for the Buy list,
+  // straight from IDX. Never fatal - a single failed ticker's corporate-action lookup is
+  // skipped, not allowed to blank out the whole section.
+  let newsItems = [];
+  try {
+    const raw = await withRetry(() => zapi.idxNews({ length: 15 }));
+    newsItems = raw
+      .filter((n) => n.Locale === "id-id")
+      .slice(0, 6)
+      .map((n) => ({ title: n.Title, source: "IDX", link: null, published_at: n.PublishedDate }));
+  } catch (e) {
+    console.error("idx news fetch failed, skipping:", e.message);
+  }
+
+  const corporateActionResults = await Promise.all(
+    buyPicks.map(async (s) => {
+      try {
+        const items = await withRetry(() => zapi.corporateActions({ code: s.ticker }));
+        // Only surface actions with a payment/ex date still in the future - past dividends
+        // already paid out aren't a "watch this" catalyst anymore.
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = items.filter((a) => (a.paymentDate || a.exDate || "") >= today);
+        if (!upcoming.length) return null;
+        const a = upcoming[0];
+        const detail =
+          a.type === "dividend"
+            ? `Dividen tunai Rp${a.cashDividend}/saham - cum date ${a.cumDate}, ex date ${a.exDate}, bayar ${a.paymentDate}`
+            : `Corporate action: ${a.type}, tanggal ${a.date}`;
+        return { ticker: s.ticker, detail };
+      } catch (e) {
+        console.error(`corporateActions(${s.ticker}) unavailable, skipping:`, e.message);
+        return null;
+      }
+    })
+  );
+  const corporateActions = corporateActionResults.filter(Boolean);
 
   // ---- 6. Ask Claude API to write the narrative layer from these REAL, already-final numbers ----
   const narrative = await writeNarrative({
@@ -246,6 +315,12 @@ export async function buildDashboard() {
         pattern: c.pattern,
         rvol: c.rvol,
         candles: c.intradayCandles,
+        fundamentals: c.fundamentals,
+        // Real daily-timeframe MA/EMA values (already computed above, no extra cost) -
+        // drawn as reference lines on the chart so the intraday session can be read
+        // against the stock's actual trend context (which line set is relevant depends
+        // on strategy: EMA13/21 for Scalping, SMA20/50 for Swing, SMA50/200 for Investment).
+        ma_lines: { sma20: c.sma20, sma50: c.sma50, sma200: c.sma200, ema13: c.ema13, ema21: c.ema21 },
       };
     });
   }
@@ -255,7 +330,13 @@ export async function buildDashboard() {
   const tradingDate = wibNow.toISOString().slice(0, 10);
   const nextUpdate = new Date(wibNow);
   nextUpdate.setUTCDate(nextUpdate.getUTCDate() + 1);
-  nextUpdate.setUTCHours(8, 0, 0, 0);
+  // Skip weekends - the scheduled run only fires Mon-Fri, so "next update" should
+  // never land on a Saturday/Sunday when today is a Friday (or, in theory, over a
+  // long weekend).
+  while (nextUpdate.getUTCDay() === 0 || nextUpdate.getUTCDay() === 6) {
+    nextUpdate.setUTCDate(nextUpdate.getUTCDate() + 1);
+  }
+  nextUpdate.setUTCHours(19, 0, 0, 0);
 
   return {
     meta: {
@@ -265,12 +346,23 @@ export async function buildDashboard() {
     },
     ihsg,
     market_summary: { regime: narrative.regime, summary: narrative.market_summary, sectors },
-    tech_news: { technical_overview: narrative.technical_overview, news: [], corporate_actions: [], analyst_ratings: [] },
+    tech_news: {
+      technical_overview: narrative.technical_overview,
+      news: newsItems,
+      corporate_actions: corporateActions,
+      // "Analyst rating" here is TradingView's own technical rating (real, already fetched
+      // above for the Investment strategy) - not a human analyst's target price, which we
+      // don't have a real source for. Labeled explicitly so it's never mistaken for one.
+      analyst_ratings: buyPicks
+        .filter((c) => c.tv_verdict)
+        .slice(0, 5)
+        .map((c) => ({ ticker: c.ticker, analyst: "TradingView Technical Rating", rating: c.tv_verdict.replace(/_/g, " ") })),
+    },
     broker_flow: {
       net_foreign_total: merged.reduce((a, b) => a + b.net_value, 0),
       top_net_buy: buySide.slice(0, 5).map((x) => ({ ticker: x.ticker, net_value: x.net_value })),
       top_net_sell: sellSide.slice(0, 5).map((x) => ({ ticker: x.ticker, net_value: x.net_value })),
-      bandarmology,
+      active_brokers: activeBrokers,
     },
     recommendations: {
       scalping: { updated_at: wibNow.toISOString(), session_note: "Update harian otomatis - RVOL/EMA13-21/RSI5", items: buildStrategyList("scalping") },

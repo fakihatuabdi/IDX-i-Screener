@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -88,10 +88,16 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .bandar-box{margin-top:18px; padding:14px 16px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border);}
 .bandar-box .head{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
 .bandar-box .ticker{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; color:var(--accent);}
-.bandar-cols{display:grid; grid-template-columns:1fr 1fr; gap:16px;} @media (max-width:520px){.bandar-cols{grid-template-columns:1fr;}}
 .bandar-col-lbl{font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
-.broker-chip{display:inline-flex; gap:6px; font-family:"IBM Plex Mono",monospace; font-size:12px; padding:3px 8px; border-radius:5px; margin:2px 4px 2px 0;}
-.broker-chip.buy{background:var(--good-soft); color:var(--good);} .broker-chip.sell{background:var(--critical-soft); color:var(--critical);}
+.broker-table-wrap{overflow-x:auto;}
+.broker-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+.broker-table th{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap;}
+.broker-table th:first-child{text-align:left;}
+.broker-table td{text-align:right; padding:7px 8px; border-bottom:1px solid var(--gridline); white-space:nowrap;}
+.broker-table td:first-child{text-align:left;}
+.broker-table tbody tr:last-child td{border-bottom:none;}
+.broker-code{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--accent);}
+.broker-name{color:var(--text-2); font-size:11.5px;}
 .news-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
 .news-item a{color:var(--text-1); text-decoration:none; font-weight:500; font-size:13.5px;} .news-item a:hover{color:var(--accent);}
 .news-src{font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;}
@@ -108,6 +114,8 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .verdict-badge.sell,.verdict-badge.strong-sell{background:var(--critical-soft); color:var(--critical);}
 .indicator-chip{font-family:"IBM Plex Mono",monospace; font-size:10.5px; padding:3px 7px; border-radius:5px; background:var(--surface); color:var(--text-2); border:1px solid var(--border);}
 .indicator-chip.flag{background:var(--warning-soft); color:var(--warning); border-color:transparent;}
+.indicator-chip.cross-bull{background:var(--good-soft); color:var(--good); border-color:transparent; font-weight:600;}
+.indicator-chip.cross-bear{background:var(--critical-soft); color:var(--critical); border-color:transparent; font-weight:600;}
 .indicator-chip.captier{font-family:"IBM Plex Sans",sans-serif; font-weight:600; background:var(--accent-soft); color:var(--accent); border-color:transparent;}
 .verdict-section{margin-top:18px;} .verdict-section:first-child{margin-top:0;}
 .verdict-section-head{display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--gridline);}
@@ -117,6 +125,10 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .verdict-section-head .count{font-size:11.5px; color:var(--text-muted);}
 .mini-chart-wrap{background:#131722; border-radius:6px; padding:4px; overflow:hidden;} .mini-chart-wrap svg{display:block; width:100%; height:auto;}
 #ihsgChartWrap{margin:16px 0;} #ihsgChartWrap .mini-chart-wrap{padding:10px;}
+.market-stats-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px;}
+.market-stat-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px;}
+.market-stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
+.market-stat-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px; margin-top:3px;}
 .card-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; margin-top:6px;}
 .stock-card{background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:16px; display:flex; flex-direction:column; gap:12px;}
 .stock-card-head{display:flex; align-items:center; gap:10px;}
@@ -178,11 +190,12 @@ footer .mono{font-size:11px;}
     <span class="regime-badge" id="regimeBadge">&mdash;</span>
     <p class="summary-text" id="marketSummaryText">&mdash;</p>
     <div id="ihsgChartWrap"></div>
+    <div class="market-stats-grid" id="marketStatsGrid"></div>
     <div class="sector-grid" id="sectorGrid"></div>
   </section>
 
   <section class="panel info" id="panelTechNews">
-    <div class="panel-head"><div><div class="eyebrow">Update Teknikal, Berita &amp; Korporasi</div><h2 id="techNewsHead">Summary Update</h2><div class="panel-sub" id="techNewsSub">Update harian 08:00 WIB</div></div></div>
+    <div class="panel-head"><div><div class="eyebrow">Update Teknikal, Berita &amp; Korporasi</div><h2 id="techNewsHead">Summary Update</h2><div class="panel-sub" id="techNewsSub">Update harian 19:00 WIB</div></div></div>
     <p class="summary-text" id="techOverview">&mdash;</p>
     <div class="bandar-col-lbl" style="margin-top:16px;">Berita, Corporate Action &amp; Rating Analis</div>
     <ul class="news-list" id="newsList"></ul>
@@ -200,11 +213,11 @@ footer .mono{font-size:11px;}
       <div><div class="bandar-col-lbl">Top 5 Net Sell Asing</div><ol class="rank-list" id="netSellList"></ol></div>
     </div>
     <div class="bandar-box" id="bandarBox">
-      <div class="head"><span class="bandar-col-lbl" style="margin:0;">Bandarmology</span><span class="ticker" id="bandarTicker">&mdash;</span></div>
-      <div class="bandar-cols">
-        <div><div class="bandar-col-lbl">Broker Akumulasi</div><div id="bandarBuyers"></div></div>
-        <div><div class="bandar-col-lbl">Broker Distribusi</div><div id="bandarSellers"></div></div>
-      </div>
+      <div class="head"><span class="bandar-col-lbl" style="margin:0;">Broker Paling Aktif</span><span class="ticker" id="bandarTicker">&mdash;</span></div>
+      <div class="broker-table-wrap"><table class="broker-table">
+        <thead><tr><th>Broker</th><th>Volume</th><th>Value</th><th>Frekuensi</th><th>Avg Price</th></tr></thead>
+        <tbody id="activeBrokerRows"></tbody>
+      </table></div>
     </div>
   </section>
 
@@ -225,7 +238,7 @@ footer .mono{font-size:11px;}
   </section>
 
   <footer>
-    <span>Sumber: arjum.com (broker) &middot; TradingView via Zapi (teknikal, chart) &middot; IDX resmi (indeks &amp; aliran asing) &middot; Claude API (narasi)</span>
+    <span>Sumber: TradingView &amp; IDX resmi via Zapi (teknikal, chart, broker, aliran asing) &middot; Claude API (narasi)</span>
     <span class="mono" id="footerTradingDate">&mdash;</span>
   </footer>
 </div>
@@ -265,16 +278,17 @@ footer .mono{font-size:11px;}
     if (v>=1e3) return (v/1e3).toFixed(0)+"rb";
     return String(Math.round(v));
   }
-  function renderCandles(candles,w,h){
+  function renderCandles(candles,w,h,overlays){
     if(!candles||!candles.length) return "";
-    w=w||320; h=h||230;
+    w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
     var mLeft=4, mRight=58, mTop=10, mBottomLabels=16, mBottomCaption=14;
     var mBottom=mBottomLabels+mBottomCaption;
     var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.2) : 0, volGap=hasVolume?6:0;
     var priceH=h-mTop-mBottom-volH-volGap;
     var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(2,slot*0.62);
-    var lo=Math.min.apply(null,candles.map(function(c){return c.l;})), hi=Math.max.apply(null,candles.map(function(c){return c.h;}));
+    var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlays.map(function(o){return o.value;}));
+    var lo=Math.min.apply(null,priceVals), hi=Math.max.apply(null,priceVals);
     var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
     function y(v){ return mTop+priceH*(1-(v-lo)/range); }
     function x(i){ return mLeft+i*slot+slot/2; }
@@ -315,9 +329,16 @@ footer .mono{font-size:11px;}
       return '<line x1="'+xx+'" y1="'+y(c.h)+'" x2="'+xx+'" y2="'+y(c.l)+'" stroke="'+color+'" stroke-width="1"/><rect x="'+(xx-bodyW/2)+'" y="'+bodyTop+'" width="'+bodyW+'" height="'+bodyH+'" fill="'+color+'"/>';
     }).join("");
 
+    // MA/EMA reference lines (real daily-timeframe values) - dashed, labeled at the right edge.
+    var overlayLines=overlays.map(function(o){
+      var yy=y(o.value);
+      return '<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="'+o.color+'" stroke-width="1.25" stroke-dasharray="4,3"/>'
+        + '<text x="'+mLeft+'" y="'+(yy-3)+'" fill="'+o.color+'" font-size="9.5" font-weight="700" font-family="IBM Plex Mono, monospace">'+esc(o.label)+'</text>';
+    }).join("");
+
     return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
       + '<rect x="0" y="0" width="'+w+'" height="'+h+'" fill="#131722"/>'
-      + grid + bars + volBars + yLabels + xLabels + xCaption
+      + grid + bars + volBars + overlayLines + yLabels + xLabels + xCaption
       + '</svg></div>';
   }
 
@@ -326,7 +347,7 @@ footer .mono{font-size:11px;}
     pill.classList.remove("live","connecting","offline");
     if (state.online===false){ pill.classList.add("offline"); label.textContent="Offline"; }
     else if (!state.data){ pill.classList.add("connecting"); label.textContent="Menyambungkan"; }
-    else { pill.classList.add("live"); label.textContent="Live"; }
+    else { pill.classList.add("live"); label.textContent="Data EOD"; }
   }
   function renderHeader(d){
     document.getElementById("ihsgLevel").textContent=fmtNum(d.ihsg.level,true);
@@ -340,8 +361,27 @@ footer .mono{font-size:11px;}
     document.getElementById("regimeBadge").textContent=d.market_summary.regime;
     document.getElementById("marketSummaryText").textContent=d.market_summary.summary;
     document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240);
-    var maxAbs=Math.max.apply(null,d.market_summary.sectors.map(function(s){return Math.abs(s.change_pct);}))||1;
-    document.getElementById("sectorGrid").innerHTML=d.market_summary.sectors.map(function(s){
+    var ms=d.ihsg.market_stats;
+    if (ms){
+      var cells=[
+        ["Jumlah Saham", IDR.format(ms.number_of_stock)],
+        ["Lot (All Market)", (ms.lot/1e6).toFixed(2)+"jt"],
+        ["Value (All Market)", "Rp"+fmtRp(ms.value)],
+        ["Frekuensi", (ms.frequency/1e6).toFixed(2)+"jt"]
+      ];
+      document.getElementById("marketStatsGrid").innerHTML=cells.map(function(c){
+        return '<div class="market-stat-cell"><div class="lbl">'+esc(c[0])+'</div><div class="val tab-nums">'+esc(c[1])+'</div></div>';
+      }).join("");
+    }
+    // Show only the top 9 sectors (already sorted best-to-worst by the backend); roll
+    // everything from the 10th sector onward into one "Lainnya" (Other) row, averaged.
+    var allSectors=d.market_summary.sectors, shown=allSectors.slice(0,9), rest=allSectors.slice(9);
+    if (rest.length){
+      var avg=rest.reduce(function(sum,s){return sum+s.change_pct;},0)/rest.length;
+      shown=shown.concat([{ name:"Lainnya ("+rest.length+" sektor)", change_pct:Math.round(avg*100)/100 }]);
+    }
+    var maxAbs=Math.max.apply(null,shown.map(function(s){return Math.abs(s.change_pct);}))||1;
+    document.getElementById("sectorGrid").innerHTML=shown.map(function(s){
       var up=s.change_pct>=0, pct=Math.min(100,Math.abs(s.change_pct)/maxAbs*50);
       return '<div class="sector-row"><span class="sector-name">'+esc(s.name)+'</span><div class="sector-bar-track"><span class="sector-center"></span><span class="sector-bar-fill '+(up?"up":"down")+'" style="width:'+pct+'%"></span></div><span class="sector-val tab-nums '+(up?"up":"down")+'">'+fmtSigned(s.change_pct,"%",true)+'</span></div>';
     }).join("");
@@ -351,7 +391,10 @@ footer .mono{font-size:11px;}
     var rows=[];
     (d.tech_news.corporate_actions||[]).forEach(function(c){ rows.push('<li class="news-item"><span class="stock-ticker mono">'+esc(c.ticker)+'</span> — '+esc(c.detail)+'</li>'); });
     (d.tech_news.analyst_ratings||[]).forEach(function(r){ rows.push('<li class="news-item"><span class="stock-ticker mono">'+esc(r.ticker)+'</span> — '+esc(r.analyst)+': <b>'+esc(r.rating)+'</b></li>'); });
-    (d.tech_news.news||[]).forEach(function(n){ rows.push('<li class="news-item"><a href="'+esc(n.link)+'" target="_blank" rel="noopener">'+esc(n.title)+'</a><br><span class="news-src">'+esc(n.source)+'</span></li>'); });
+    (d.tech_news.news||[]).forEach(function(n){
+      var titleHtml = n.link ? '<a href="'+esc(n.link)+'" target="_blank" rel="noopener">'+esc(n.title)+'</a>' : esc(n.title);
+      rows.push('<li class="news-item">'+titleHtml+'<br><span class="news-src">'+esc(n.source)+'</span></li>');
+    });
     document.getElementById("newsList").innerHTML=rows.join("")||'<li class="empty-note">Tidak ada berita baru.</li>';
   }
   function renderBroker(d){
@@ -360,27 +403,80 @@ footer .mono{font-size:11px;}
     function list(items,positive){ return items.map(function(it,i){ return '<li class="rank-row"><span class="rank-idx">'+(i+1)+'</span><span class="rank-ticker">'+esc(it.ticker)+'</span><span class="rank-val tab-nums '+(positive?"up":"down")+'">'+(positive?"+":"-")+"Rp"+fmtRp(Math.abs(it.net_value))+'</span></li>'; }).join(""); }
     document.getElementById("netBuyList").innerHTML=list(bf.top_net_buy,true);
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
-    var b=bf.bandarmology;
-    if (b){ document.getElementById("bandarTicker").textContent=b.ticker;
-      document.getElementById("bandarBuyers").innerHTML=(b.top_buyers||[]).map(function(x){return '<span class="broker-chip buy">'+esc(x.broker)+' '+esc(x.value)+'</span>';}).join("");
-      document.getElementById("bandarSellers").innerHTML=(b.top_sellers||[]).map(function(x){return '<span class="broker-chip sell">'+esc(x.broker)+' '+esc(x.value)+'</span>';}).join("");
+    var ab=bf.active_brokers;
+    if (ab && ab.top10 && ab.top10.length){
+      document.getElementById("bandarTicker").textContent=ab.ticker+(ab.date?" Â· "+ab.date:"");
+      document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b){
+        return '<tr><td><span class="broker-code">'+esc(b.broker)+'</span> <span class="broker-name">'+esc(b.name)+'</span></td>'
+          + '<td class="tab-nums">'+IDR.format(b.volume)+'</td>'
+          + '<td class="tab-nums">Rp'+fmtRp(b.value)+'</td>'
+          + '<td class="tab-nums">'+IDR.format(b.frequency)+'</td>'
+          + '<td class="tab-nums">'+(b.avg_price!=null?IDR.format(b.avg_price):"&mdash;")+'</td></tr>';
+      }).join("");
       document.getElementById("bandarBox").hidden=false;
     } else { document.getElementById("bandarBox").hidden=true; }
   }
   function verdictClass(v){ return v ? v.toLowerCase().replace(/\s+/g,"-") : "hold"; }
+  function fmtPct1(v){ return v==null?null:(Math.round(v*10)/10)+"%"; }
+  function fmtMarketCap(v){
+    if (v==null) return null;
+    if (v>=1e12) return "Rp"+(v/1e12).toFixed(2)+"T";
+    if (v>=1e9) return "Rp"+(v/1e9).toFixed(2)+"M";
+    return "Rp"+IDR.format(v);
+  }
+  function renderFundamentals(f){
+    if (!f) return "";
+    var rows=[
+      ["Market Cap", fmtMarketCap(f.market_cap)],
+      ["PE (TTM)", f.pe_ttm!=null?f.pe_ttm.toFixed(2)+"x":null],
+      ["PB Ratio", f.pb_ratio!=null?f.pb_ratio.toFixed(2)+"x":null],
+      ["Dividend Yield", fmtPct1(f.dividend_yield)],
+      ["Payout Ratio", fmtPct1(f.payout_ratio)],
+      ["Debt/Equity", f.debt_to_equity!=null?f.debt_to_equity.toFixed(2)+"x":null],
+      ["ROE", fmtPct1(f.roe)]
+    ].filter(function(r){ return r[1]!=null; });
+    if (!rows.length) return '<details class="fund"><summary>Fundamental</summary><p class="fund-na">Data fundamental tidak tersedia untuk saham ini.</p></details>';
+    return '<details class="fund"><summary>Fundamental (info latar belakang, bukan dasar screening)</summary><div class="fund-grid">'
+      + rows.map(function(r){ return '<div class="fund-cell"><span class="k">'+esc(r[0])+'</span><span class="v tab-nums">'+esc(r[1])+'</span></div>'; }).join("")
+      + '</div></details>';
+  }
+  // Which MA/EMA pair is analytically relevant depends on the active strategy - Scalping
+  // trades the fast EMA13/21 crossover, Swing trades MA20/50, Investment trades the
+  // classic SMA50/200 golden/death cross. Lines are real values already computed by the
+  // backend (never estimated here); drawn on the chart plus a plain-language cross badge.
+  function maOverlaysFor(s){
+    var ml=s.ma_lines; if (!ml) return { overlays:[], crossLabel:null };
+    var pairs={
+      scalping:[["EMA13",ml.ema13,"#60a5fa"],["EMA21",ml.ema21,"#f59e0b"]],
+      swing:[["MA20",ml.sma20,"#60a5fa"],["MA50",ml.sma50,"#f59e0b"]],
+      investment:[["MA50",ml.sma50,"#60a5fa"],["MA200",ml.sma200,"#f59e0b"]]
+    };
+    var pair=pairs[state.strategy]||pairs.swing;
+    var overlays=pair.filter(function(p){return p[1]!=null;}).map(function(p){return {label:p[0],value:p[1],color:p[2]};});
+    var crossLabel=null;
+    if (pair[0][1]!=null && pair[1][1]!=null){
+      var bullish=pair[0][1]>pair[1][1];
+      crossLabel=pair[0][0]+(bullish?" > ":" < ")+pair[1][0]+(bullish?" (Bullish)":" (Bearish)");
+      crossLabel={ text:crossLabel, bullish:bullish };
+    }
+    return { overlays:overlays, crossLabel:crossLabel };
+  }
   function stockCard(s){
     var badges=[];
     if (s.cap_tier) badges.push('<span class="indicator-chip captier">'+esc(s.cap_tier)+'</span>');
     if (s.sma50||s.sma20) badges.push('<span class="indicator-chip">SMA20 '+fmtNum(s.sma20)+' &middot; SMA50 '+fmtNum(s.sma50)+'</span>');
     if (s.rvol) badges.push('<span class="indicator-chip'+(s.rvol>=1.5?" flag":"")+'">RVOL '+s.rvol.toFixed(2)+'x</span>');
     if (s.pattern) badges.push('<span class="indicator-chip">'+esc(s.pattern)+'</span>');
+    var ma=maOverlaysFor(s);
+    if (ma.crossLabel) badges.push('<span class="indicator-chip '+(ma.crossLabel.bullish?"cross-bull":"cross-bear")+'">'+esc(ma.crossLabel.text)+'</span>');
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div>'+verdictHtml+'</div>'
-      + badgeRow + renderCandles(s.candles)
+      + badgeRow + renderCandles(s.candles,320,230,ma.overlays)
       + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div></div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'
       + '<div class="catalyst"><b>Catalyst:</b> '+esc(s.catalyst)+'<br><span class="source-tag">Sumber: '+esc(s.source)+'</span></div>'
+      + renderFundamentals(s.fundamentals)
       + '</article>';
   }
   function verdictBucket(v){ if(!v) return "hold"; var lv=v.toLowerCase(); if(lv.indexOf("sell")>=0) return "sell"; if(lv.indexOf("buy")>=0) return "buy"; return "hold"; }
@@ -401,7 +497,7 @@ footer .mono{font-size:11px;}
     var rec=d.recommendations||{}, items=[];
     if (state.strategy==="scalping"){ var sc=rec.scalping||{}; items=sc.items||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Scalping"; document.getElementById("recsSub").textContent=sc.session_note||"Intraday"; }
     else if (state.strategy==="investment"){ var iv=rec.investment||{}; items=iv.items||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Investment"; document.getElementById("recsSub").textContent="Horizon panjang"; }
-    else { items=rec.swing||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Swing"; document.getElementById("recsSub").textContent="Update harian 08:00 WIB"; }
+    else { items=rec.swing||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Swing"; document.getElementById("recsSub").textContent="Update harian 19:00 WIB"; }
     document.getElementById("cardGrid").innerHTML = items.length ? renderGroupedByVerdict(items) : '<p class="empty-note">Belum ada rekomendasi.</p>';
   }
   function renderWatch(d){
