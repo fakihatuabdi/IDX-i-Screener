@@ -46,7 +46,7 @@ export async function buildDashboard() {
   ]);
   const ffTop = ffPage0, ffTail = [...ffPage1, ...ffPage2, ...ffPage3];
 
-  const composite = ihsgIndex.data.find((d) => d.IndexCode === "COMPOSITE");
+  const composite = ihsgIndex.find((d) => d.IndexCode === "COMPOSITE");
   const ihsg = {
     level: composite.Close,
     change: composite.Change,
