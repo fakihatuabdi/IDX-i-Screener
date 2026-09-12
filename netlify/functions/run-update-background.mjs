@@ -6,9 +6,20 @@
 // /api/dashboard a bit later (30-90s) to see the result.
 // NOTE: Background functions use the classic named "handler" export, not the
 // newer `export default` Request/Response style used by get-dashboard.mjs.
+import { getStore } from "@netlify/blobs";
 import { runAndStore } from "./lib/pipeline.mjs";
 
 export async function handler() {
+  // Diagnostic: prove Blobs writes work at all in this function type, before the
+  // heavier pipeline runs. If even this never shows up in get-dashboard's debug
+  // field, the problem is Blobs/background-function context, not the pipeline logic.
+  try {
+    const store = getStore("ihsg-dashboard");
+    await store.setJSON("last-run-status", { ok: null, at: new Date().toISOString(), phase: "handler-started" });
+  } catch (e) {
+    console.error("diagnostic Blobs write failed at handler start:", e);
+  }
+
   try {
     const dashboard = await runAndStore();
     console.log("run-update-background completed OK for", dashboard.meta.trading_date);

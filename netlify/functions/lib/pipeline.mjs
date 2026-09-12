@@ -424,8 +424,8 @@ export async function buildDashboard() {
 
 /** Runs the full pipeline and persists the result to Netlify Blobs. Shared by both entry points. */
 export async function runAndStore() {
-  const store = getStore("ihsg-dashboard");
   try {
+    const store = getStore("ihsg-dashboard");
     const dashboard = await buildDashboard();
     await store.setJSON("latest", dashboard);
     await store.setJSON(`history-${dashboard.meta.trading_date}`, { trading_date: dashboard.meta.trading_date, briefing: dashboard.briefing });
@@ -436,8 +436,14 @@ export async function runAndStore() {
     // The background-function trigger never surfaces this to the caller (it already
     // returned 202 before this runs) and the platform's log UI is hard to get useful
     // detail out of - persist the failure here so it's readable via get-dashboard's
-    // debug field without needing Netlify's dashboard at all.
-    await store.setJSON("last-run-status", { ok: false, at: new Date().toISOString(), error: err.message, stack: err.stack });
+    // debug field without needing Netlify's dashboard at all. Get a fresh store handle
+    // here too (never reuse one from the try block) in case getStore() itself was what failed.
+    try {
+      const store = getStore("ihsg-dashboard");
+      await store.setJSON("last-run-status", { ok: false, at: new Date().toISOString(), error: err.message, stack: err.stack });
+    } catch (storeErr) {
+      console.error("could not even persist last-run-status:", storeErr.message);
+    }
     throw err;
   }
 }
