@@ -1,0 +1,17 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Redirect the root API path to make frontend fetches tidy
+[[redirects]]
+  from = "/api/dashboard"
+  to = "/.netlify/functions/get-dashboard"
+  status = 200
+
+[[redirects]]
+  from = "/api/run-update"
+  to = "/.netlify/functions/daily-update"
+  status = 200
