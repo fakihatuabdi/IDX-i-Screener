@@ -201,8 +201,12 @@ export async function buildDashboard() {
     return results;
   }
 
-  // Zapi Pro tier: full 10 Buy / 5 Hold / 5 Sell shortlist (20 tickers), shared across all 3 strategies.
-  const SHORTLIST_BUY = 10, SHORTLIST_SELL = 5, SHORTLIST_HOLD = 5;
+  // TEMPORARY: shrunk from the real 10/5/5 spec to fit a full E2E smoke test under the
+  // ~40s synchronous gateway limit (Background Functions don't work on this account -
+  // see debug-sync-run.mjs). Restore to 10/5/5 once confirmed; the real scheduled run
+  // at 19:00 WIB isn't affected by this limit at all (Scheduled Functions get their own
+  // extended execution budget), so this is purely for today's manual verification.
+  const SHORTLIST_BUY = 3, SHORTLIST_SELL = 2, SHORTLIST_HOLD = 2;
   const usedTickers = new Set();
 
   const buyPicks = await fillBucket(buySide, SHORTLIST_BUY);
