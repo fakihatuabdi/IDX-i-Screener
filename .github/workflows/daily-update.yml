@@ -1,0 +1,38 @@
+name: Daily IHSG Update
+
+on:
+  schedule:
+    # 19:00 WIB = 12:00 UTC, Monday-Friday only (IDX doesn't trade on weekends)
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch: {} # adds a manual "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write # needed to commit the updated data file back to the repo
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run pipeline
+        run: node scripts/run-pipeline.mjs
+        env:
+          ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/latest.json
+          git diff --staged --quiet || git commit -m "Automated dashboard update $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push

@@ -1,90 +1,59 @@
-# Watchlist IHSG - Netlify
+# Watchlist IHSG
 
-Dashboard watchlist IHSG yang update otomatis tiap hari bursa (Senin-Jumat) jam 19:00 WIB (setelah bursa tutup), tanpa perlu trigger manual. Backend berjalan sebagai Netlify Scheduled Function, data disimpan di Netlify Blobs, dan frontend (`public/index.html`) membacanya lewat endpoint `/api/dashboard`.
+Dashboard watchlist IHSG yang update otomatis tiap hari bursa (Senin-Jumat) jam 19:00 WIB, setelah bursa tutup. Tanpa Netlify, tanpa server, tanpa biaya bulanan — semuanya jalan di GitHub (Actions + Pages).
 
-## Arsitektur singkat
+## Arsitektur
 
-- `netlify/functions/daily-update.mjs` - Scheduled Function, jalan otomatis tiap `12:00 UTC` (= `19:00 WIB`) di hari Senin-Jumat saja (tidak jalan Sabtu/Minggu karena bursa libur). Ambil data dari Zapi (TradingView + IDX resmi, termasuk broker summary), hitung semua indikator teknikal secara deterministik, lalu panggil Claude API hanya untuk menulis narasi teks. Hasilnya disimpan ke Netlify Blobs.
-- `netlify/functions/get-dashboard.mjs` - Function biasa yang dibaca frontend, isinya cuma membaca data terakhir dari Blobs.
-- `public/index.html` - dashboard statis, fetch `/api/dashboard` saat dibuka dan setiap 60 detik.
+- **GitHub Actions** (`.github/workflows/daily-update.yml`) — jalan otomatis tiap hari bursa jam 19:00 WIB (cron `0 12 * * 1-5`, UTC). Ambil data dari Zapi (TradingView + IDX resmi, termasuk broker summary, fundamentals, berita, corporate action), hitung semua indikator teknikal secara deterministik, panggil Claude API hanya untuk menulis narasi teks, lalu **commit hasilnya langsung ke repo** sebagai file JSON (`docs/data/latest.json`).
+- **GitHub Pages** — meng-host `docs/index.html` (dashboard statis) yang fetch `docs/data/latest.json` langsung sebagai file, tanpa API/server sama sekali.
+- **`lib/`** — logic inti (pipeline, indikator, klien Zapi, klien Claude), dipakai oleh `scripts/run-pipeline.mjs`.
 
-Prinsip yang dipertahankan dari versi Artifact sebelumnya: data fundamental tidak pernah dipakai untuk screening/ranking (hanya latar belakang), semua angka (harga, verdict, indikator) dihitung dari data asli - Claude API cuma menulis kalimat, tidak pernah mengarang angka. Kalau satu sumber data gagal/kena limit, kode akan skip sumber itu saja dan lanjut pakai data lain (tidak membatalkan seluruh update).
+Prinsip yang tetap dipertahankan: data fundamental tidak pernah dipakai untuk screening/ranking Scalping & Swing (hanya latar belakang di kartu saham); Investment strategy secara eksplisit mempertimbangkan fundamental (PER/PBV/Dividend Yield/DER/ROE) untuk ranking & narasinya. Semua angka (harga, verdict, indikator) dihitung dari data asli — Claude API cuma menulis kalimat, tidak pernah mengarang angka. Kalau satu sumber data gagal/kena limit, kode skip sumber itu saja dan lanjut pakai data lain (tidak membatalkan seluruh update).
 
-## Setup - langkah demi langkah
+## Setup — langkah demi langkah
 
-### 1. Dapatkan Anthropic API key (berbayar, terpisah dari Claude Code)
+### 1. Tambahkan secrets di GitHub
 
-1. Buka https://console.anthropic.com dan login/daftar.
-2. Menu **API Keys** -> **Create Key**. Simpan key ini (`sk-ant-...`) di tempat aman (password manager) - JANGAN ditulis di file ini atau file apa pun di folder project. Key hanya boleh dimasukkan lewat env var Netlify di langkah 4.
-3. Isi saldo/billing secukupnya (dashboard ini murah - sekali panggil per hari, model default `claude-haiku-4-5-20251001`).
+Di repo GitHub Anda: **Settings -> Secrets and variables -> Actions -> New repository secret**. Tambahkan 2 ini:
 
-### 2. Push folder ini ke GitHub
-
-Dari folder `C:\Users\LENOVO\ihsg-dashboard-netlify`:
-
-```powershell
-git init
-git add .
-git commit -m "Initial commit: IHSG dashboard Netlify pipeline"
-```
-
-Lalu buat repo baru (kosong) di https://github.com/new, misalnya `ihsg-dashboard`. Setelah itu:
-
-```powershell
-git remote add origin https://github.com/<username>/ihsg-dashboard.git
-git branch -M main
-git push -u origin main
-```
-
-Ganti `<username>` dan nama repo sesuai punya Anda. Repo boleh **private**, tidak masalah untuk Netlify.
-
-### 3. Hubungkan repo ke Netlify
-
-1. Login ke https://app.netlify.com (bisa pakai akun GitHub yang sama).
-2. **Add new site -> Import an existing project -> Deploy with GitHub**.
-3. Pilih repo `ihsg-dashboard` yang baru dibuat. Netlify otomatis mendeteksi `netlify.toml` (build settings sudah diatur di situ, tidak perlu diubah).
-4. Klik **Deploy site**.
-
-### 4. Set environment variables di Netlify
-
-Di dashboard site Netlify: **Site configuration -> Environment variables -> Add a variable**. Tambahkan 3 ini:
-
-| Key | Value |
+| Name | Value |
 |---|---|
 | `ZAPI_KEY` | key Zapi Anda (`zpi_...`) |
-| `ANTHROPIC_API_KEY` | key dari langkah 1 (`sk-ant-...`) |
-| `ANTHROPIC_MODEL` | (opsional) default `claude-haiku-4-5-20251001`, bisa ganti `claude-sonnet-5` kalau mau narasi lebih kaya |
+| `ANTHROPIC_API_KEY` | key Anthropic Anda dari https://console.anthropic.com (`sk-ant-...`) — **JANGAN** pernah ditulis di file/kode, hanya lewat secret ini |
 
-(`ARJUM_KEY` sudah tidak dipakai lagi - broker summary sekarang diambil dari Zapi juga.)
+### 2. Aktifkan GitHub Pages
 
-Setelah menambahkan env var, trigger **Deploy -> Trigger deploy -> Clear cache and deploy site** sekali supaya function membaca env var barunya.
+**Settings -> Pages**:
+- Source: **Deploy from a branch**
+- Branch: **main**, folder **/docs**
+- Save
 
-### 5. Pastikan Scheduled Functions aktif
+Setelah beberapa menit, situs Anda akan tersedia di `https://<username>.github.io/<nama-repo>/`.
 
-Netlify mendeteksi `daily-update.mjs` sebagai Scheduled Function otomatis dari kode `export default schedule("0 12 * * 1-5", handler)` - tidak perlu setting tambahan. Anda bisa cek di tab **Functions** di dashboard Netlify, akan ada function `daily-update` dengan label "Scheduled".
+### 3. Jalankan update pertama kali (manual)
 
-### 6. Test manual sebelum menunggu jam 19:00
+Jangan tunggu jadwal otomatis untuk verifikasi pertama kali:
+1. Buka tab **Actions** di repo GitHub Anda.
+2. Klik workflow **"Daily IHSG Update"** di sidebar kiri.
+3. Klik tombol **"Run workflow"** (dropdown di kanan) -> **Run workflow**.
+4. Tunggu 1-3 menit, refresh halaman - akan ada centang hijau kalau berhasil.
+5. Cek log-nya (klik run yang baru selesai) kalau ada error - error asli akan terlihat jelas di sini (beda dengan Netlify Functions yang sering menyembunyikan error).
+6. Buka situs GitHub Pages Anda - dashboard akan tampil dengan data asli.
 
-Jangan tunggu jadwal otomatis untuk verifikasi pertama kali. Buka:
+### 4. Jadwal otomatis
 
-```
-https://<nama-site-anda>.netlify.app/api/run-update
-```
+Sudah otomatis aktif dari `cron: "0 12 * * 1-5"` di workflow file — tidak perlu setting tambahan. GitHub Actions akan menjalankannya sendiri tiap hari bursa jam 19:00 WIB, commit hasilnya ke `docs/data/latest.json`, dan GitHub Pages otomatis menyajikan versi terbaru itu.
 
-di browser (atau `curl`). Ini menjalankan `run-update-background.mjs` - pipeline yang sama persis dengan update terjadwal, dijalankan sebagai **Background Function** (Netlify tidak mengizinkan Scheduled Function seperti `daily-update.mjs` dipanggil langsung dari luar, dan pipeline ini butuh waktu lebih dari batas timeout function biasa karena volume data yang besar).
-
-Karena background function, responsnya akan **kosong/langsung selesai dalam <1 detik** - itu normal, bukan berarti gagal. Prosesnya tetap jalan di belakang layar selama 30-90 detik. Tunggu sebentar, lalu buka `https://<nama-site-anda>.netlify.app/api/dashboard` atau langsung buka dashboard-nya - datanya akan muncul begitu selesai. Cek tab **Logs -> Function logs** di Netlify kalau setelah beberapa menit datanya belum juga muncul (biasanya env var yang belum ke-set, atau salah satu API key expired/limit).
-
-Setelah itu buka `https://<nama-site-anda>.netlify.app/` - dashboard akan tampil dengan data asli.
-
-### 7. (Opsional) Custom domain / hosting InfinityFree lama
-
-Hosting InfinityFree yang lama tidak dipakai lagi untuk jalur ini karena tidak punya cron/serverless function (PHP/MySQL murni). Kalau suatu saat mau memakai domain sendiri yang sudah dibeli, itu tetap bisa - tinggal arahkan domain tersebut ke Netlify lewat **Site configuration -> Domain management -> Add a domain**, hosting file/function-nya tetap di Netlify.
+Anda bisa lihat riwayat semua run (otomatis maupun manual) di tab **Actions** kapan saja.
 
 ## Kuota API (Zapi Pro)
 
-Dengan Zapi sudah di-upgrade ke Pro, pipeline sekarang menggunakan kuota lebih besar per hari:
-- Screener 300 saham + foreign-flow 4 halaman (800 baris) + chart intraday IHSG, sekali jalan - untuk sektor & ranking yang lebih representatif.
-- Shortlist penuh 20 saham/hari (10 Buy + 5 Hold + 5 Sell, sesuai spesifikasi dashboard), masing-masing diambil: chart harian 210 hari (indikator), chart intraday per jam (untuk grafik di kartu), dan rating teknikal TradingView asli (dipakai khusus untuk verdict strategi Investment).
-- Broker summary (top 10 broker paling aktif) untuk 1 saham unggulan.
-- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 = ~367 call/hari kalau dijalankan sekali sehari - jauh di bawah kuota bulanan Pro. Kalau suatu saat mau menambah shortlist atau menjalankan lebih dari sekali sehari, sesuaikan angka `SHORTLIST_BUY/HOLD/SELL` dan jumlah halaman foreign-flow di `daily-update.mjs`.
+Sekali jalan (baik otomatis maupun manual), pipeline memakai:
+- Screener 300 saham + foreign-flow 4 halaman (800 baris) + chart intraday IHSG.
+- Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 210 hari, chart intraday per jam, rating teknikal TradingView, dan data fundamental.
+- Broker summary top 10 aktif untuk 1 saham unggulan, berita bursa, dan corporate action untuk 10 saham Buy.
+- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 + 1 + 10 = ~378 call/hari kalau dijalankan sekali sehari — jauh di bawah kuota bulanan Pro (~11.000+ call/bulan kalau jalan tiap hari bursa).
+
+## Catatan: kenapa pindah dari Netlify
+
+Sempat dicoba pakai Netlify Functions (Scheduled Function + Background Function untuk trigger manual), tapi Background Function ternyata tidak benar-benar berjalan di akun yang dipakai (terbukti lewat pengujian langsung: bahkan operasi paling sederhana pun tidak pernah selesai dieksekusi meski selalu membalas "202 Accepted"), sementara pipeline penuh butuh waktu lebih dari 40 detik sehingga tidak muat di batas waktu function biasa. GitHub Actions tidak punya batasan seperti ini (limitnya jam, bukan detik) dan gratis untuk kebutuhan ini, jadi datanya sekarang disimpan sebagai file statis di repo, bukan lewat database/serverless function.

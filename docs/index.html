@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -272,12 +272,6 @@ footer .mono{font-size:11px;}
   // TradingView-style dark intraday candle chart (jam buka - jam tutup bursa hari
   // terakhir): black background, green/red candles, gridlines with price labels on
   // the Y-axis and hour labels on the X-axis.
-  function fmtAxisVolume(v){
-    if (v>=1e9) return (v/1e9).toFixed(1)+"B";
-    if (v>=1e6) return (v/1e6).toFixed(1)+"jt";
-    if (v>=1e3) return (v/1e3).toFixed(0)+"rb";
-    return String(Math.round(v));
-  }
   function renderCandles(candles,w,h,overlays){
     if(!candles||!candles.length) return "";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
@@ -405,7 +399,7 @@ footer .mono{font-size:11px;}
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
     var ab=bf.active_brokers;
     if (ab && ab.top10 && ab.top10.length){
-      document.getElementById("bandarTicker").textContent=ab.ticker+(ab.date?" Â· "+ab.date:"");
+      document.getElementById("bandarTicker").textContent=ab.ticker+(ab.date?" · "+ab.date:"");
       document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b){
         return '<tr><td><span class="broker-code">'+esc(b.broker)+'</span> <span class="broker-name">'+esc(b.name)+'</span></td>'
           + '<td class="tab-nums">'+IDR.format(b.volume)+'</td>'
@@ -518,18 +512,20 @@ footer .mono{font-size:11px;}
   document.getElementById("btnInvestment").addEventListener("click",function(){ state.strategy="investment"; render(); });
 
   function load(){
-    fetch("/api/dashboard").then(function(r){ return r.json(); }).then(function(json){
+    // Cache-bust: this is a static file GitHub Pages/browsers may cache aggressively,
+    // and it changes once a day - a fresh query string forces a real re-fetch.
+    fetch("./data/latest.json?t=" + Date.now()).then(function(r){ return r.json(); }).then(function(json){
       state.online = true;
       if (json && json.ok){ state.data = json; }
       render();
     }).catch(function(err){
-      console.error("fetch /api/dashboard failed", err);
+      console.error("fetch ./data/latest.json failed", err);
       state.online = false;
       computeStatus();
     });
   }
   load();
-  setInterval(load, 60000); // refresh from Blobs every 60s, in case another viewer's page triggered a re-render
+  setInterval(load, 60000); // pick up a same-day re-run automatically if the page stays open
 })();
 </script>
 </body>

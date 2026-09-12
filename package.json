@@ -1,11 +1,13 @@
 {
-  "name": "ihsg-dashboard-netlify",
+  "name": "ihsg-dashboard",
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "description": "Watchlist IHSG - Netlify Scheduled Function pipeline + dashboard",
+  "description": "Watchlist IHSG - GitHub Actions pipeline + static dashboard (GitHub Pages)",
+  "scripts": {
+    "update": "node scripts/run-pipeline.mjs"
+  },
   "dependencies": {
-    "@netlify/blobs": "^8.1.0",
     "@anthropic-ai/sdk": "^0.32.1"
   }
 }
