@@ -2,8 +2,11 @@ name: Daily IHSG Update
 
 on:
   schedule:
-    # 19:00 WIB = 12:00 UTC, Monday-Friday only (IDX doesn't trade on weekends)
-    - cron: "0 12 * * 1-5"
+    # 19:00 WIB = 12:00 UTC, every day except Saturday. IDX doesn't trade on weekends, but
+    # Sunday still runs deliberately: it produces Monday's prep report from Friday's real
+    # closing data (the pipeline always reports the actual last-session date, so this is
+    # never mislabeled as "Sunday's" data).
+    - cron: "0 12 * * 0-5"
   workflow_dispatch: {} # adds a manual "Run workflow" button on the Actions tab
 
 permissions:
@@ -17,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install dependencies
         run: npm install
@@ -33,6 +36,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data/latest.json
+          git add docs/data/latest.json docs/data/track-record.json
           git diff --staged --quiet || git commit -m "Automated dashboard update $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push

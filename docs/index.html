@@ -61,8 +61,10 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .panel{background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-top:20px; padding:20px 22px; box-shadow:var(--shadow); border-left:2px solid var(--rail, var(--border));}
 .panel.info{--rail:var(--accent);} .panel.bull{--rail:var(--good);} .panel.watch{--rail:var(--warning);}
 .panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
-.eyebrow{font-size:11px; font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-muted);}
-.panel h2{font-size:17px; font-weight:700; margin-top:2px; font-family:"Source Serif 4",Georgia,serif; text-transform:uppercase; letter-spacing:0.03em;}
+.eyebrow{font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--rail, var(--accent)); display:flex; align-items:center; gap:6px;}
+.eyebrow::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--rail, var(--accent)); flex-shrink:0;}
+.panel h2{font-size:19px; font-weight:700; margin-top:5px; padding-bottom:9px; font-family:"Source Serif 4",Georgia,serif; text-transform:uppercase; letter-spacing:0.04em; position:relative;}
+.panel h2::after{content:""; position:absolute; left:0; bottom:0; width:38px; height:3px; border-radius:2px; background:var(--rail, var(--accent));}
 .panel-sub{font-size:12px; color:var(--text-muted);}
 .regime-badge{display:inline-block; font-size:12px; font-weight:600; padding:4px 11px; border-radius:6px; background:var(--accent-soft); color:var(--accent); margin-bottom:10px;}
 .summary-text{color:var(--text-2); text-align:justify; text-justify:inter-word;}
@@ -87,7 +89,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .rank-val.up{color:var(--good);} .rank-val.down{color:var(--critical);}
 .bandar-box{margin-top:18px; padding:14px 16px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border);}
 .bandar-box .head{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
-.bandar-box .ticker{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; color:var(--accent);}
+.bandar-box .bandar-ticker-tag{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; color:var(--accent);}
 .bandar-col-lbl{font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
 .broker-table-wrap{overflow-x:auto;}
 .broker-table{width:100%; border-collapse:collapse; font-size:12.5px;}
@@ -129,6 +131,20 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .market-stat-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px;}
 .market-stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .market-stat-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px; margin-top:3px;}
+.winrate-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:16px;}
+.winrate-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px; border-left:3px solid var(--good);}
+.winrate-cell.na{border-left-color:var(--border);}
+.winrate-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
+.winrate-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:17px; margin-top:3px; color:var(--good);}
+.winrate-cell.na .val{font-size:12px; font-weight:600; color:var(--text-muted); font-family:"IBM Plex Sans",sans-serif;}
+.winrate-cell .sub{font-size:10px; color:var(--text-muted); margin-top:2px;}
+.pick-cell{background:var(--surface-2); border-radius:8px; padding:12px 14px;}
+.pick-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
+.pick-cell .ticker-line{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px;}
+.pick-cell .edge{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:13px; margin-left:8px;}
+.pick-cell .edge.up{color:var(--good);} .pick-cell .edge.down{color:var(--critical);}
+.pick-cell .meta{font-size:11.5px; color:var(--text-muted); margin-top:4px;}
+.indicator-chip.potential{background:var(--accent-soft); color:var(--accent); border-color:transparent; font-weight:700;}
 .card-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; margin-top:6px;}
 .stock-card{background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:16px; display:flex; flex-direction:column; gap:12px;}
 .stock-card-head{display:flex; align-items:center; gap:10px;}
@@ -213,7 +229,7 @@ footer .mono{font-size:11px;}
       <div><div class="bandar-col-lbl">Top 5 Net Sell Asing</div><ol class="rank-list" id="netSellList"></ol></div>
     </div>
     <div class="bandar-box" id="bandarBox">
-      <div class="head"><span class="bandar-col-lbl" style="margin:0;">Broker Paling Aktif</span><span class="ticker" id="bandarTicker">&mdash;</span></div>
+      <div class="head"><span class="bandar-col-lbl" style="margin:0;">Broker Paling Aktif</span><span class="bandar-ticker-tag" id="bandarTicker">&mdash;</span></div>
       <div class="broker-table-wrap"><table class="broker-table">
         <thead><tr><th>Broker</th><th>Volume</th><th>Value</th><th>Frekuensi</th><th>Avg Price</th></tr></thead>
         <tbody id="activeBrokerRows"></tbody>
@@ -221,8 +237,18 @@ footer .mono{font-size:11px;}
     </div>
   </section>
 
+  <section class="panel bull" id="panelWeeklySummary" hidden>
+    <div class="panel-head"><div><div class="eyebrow">Laporan Jumat</div><h2>Rekap Performa Mingguan</h2><div class="panel-sub" id="weeklySummarySub">&mdash;</div></div></div>
+    <p class="summary-text" id="weeklyHeadline" style="font-weight:600; font-size:15px;">&mdash;</p>
+    <div class="winrate-strip" id="weeklyStatsGrid"></div>
+    <p class="summary-text" id="weeklyRecap">&mdash;</p>
+    <div class="two-col" id="weeklyPicksGrid"></div>
+    <p class="empty-note" style="margin-top:12px;">Rekomendasi saham baru akan muncul lagi Minggu malam jam 19:00 WIB (persiapan untuk Senin).</p>
+  </section>
+
   <section class="panel bull" id="panelRecs">
     <div class="panel-head"><div><div class="eyebrow">Rekomendasi Buy</div><h2 id="recsHead">Saham Bullish IHSG</h2><div class="panel-sub" id="recsSub">&mdash;</div></div></div>
+    <div class="winrate-strip" id="winrateStrip"></div>
     <div class="strategy-toggle" role="group" aria-label="Pilih strategi">
       <button type="button" id="btnScalping">Scalping</button>
       <button type="button" id="btnSwing" class="active">Swing</button>
@@ -261,17 +287,17 @@ footer .mono{font-size:11px;}
     investment:"Bulan - tahun. Fokus: SMA50/SMA200, verdict teknikal Buy/Strong Buy."
   };
 
-  function fmtAxisTime(iso){
+  function fmtAxisDate(iso){
     if(!iso) return "";
-    try{ var d=new Date(iso); return d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"}); }catch(e){ return ""; }
+    try{ var d=new Date(iso); return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",timeZone:"Asia/Jakarta"}); }catch(e){ return ""; }
   }
   function fmtAxisPrice(v){
     if (Math.abs(v) >= 1000) return IDR.format(Math.round(v));
     return v.toFixed(v < 10 ? 2 : 0);
   }
-  // TradingView-style dark intraday candle chart (jam buka - jam tutup bursa hari
-  // terakhir): black background, green/red candles, gridlines with price labels on
-  // the Y-axis and hour labels on the X-axis.
+  // TradingView-style dark daily candle chart (1 minggu perdagangan terakhir, refresh
+  // tiap hari): black background, green/red candles, gridlines with price labels on the
+  // Y-axis and date labels on the X-axis.
   function renderCandles(candles,w,h,overlays){
     if(!candles||!candles.length) return "";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
@@ -307,15 +333,15 @@ footer .mono{font-size:11px;}
       volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+7)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Vol</text>';
     }
 
-    // Intraday sessions are short (~7 hourly bars), so label every bar rather than sampling.
+    // Only ~5-7 daily bars in a week, so label every bar rather than sampling.
     var xLabelY=mTop+priceH+(hasVolume?volGap+volH:0)+12;
-    var xLabelCount=Math.min(8,n), xLabels="";
+    var xLabelCount=Math.min(7,n), xLabels="";
     for (var k=0;k<xLabelCount;k++){
       var idx=Math.round(k*(n-1)/(xLabelCount-1||1)), lx=x(idx);
-      var timeStr=fmtAxisTime(candles[idx].t);
-      if (timeStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
+      var dateStr=fmtAxisDate(candles[idx].t);
+      if (dateStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(dateStr)+'</text>';
     }
-    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle">Jam (WIB)</text>';
+    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle">Harian</text>';
 
     var bars=candles.map(function(c,i){
       var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
@@ -463,6 +489,7 @@ footer .mono{font-size:11px;}
     if (s.pattern) badges.push('<span class="indicator-chip">'+esc(s.pattern)+'</span>');
     var ma=maOverlaysFor(s);
     if (ma.crossLabel) badges.push('<span class="indicator-chip '+(ma.crossLabel.bullish?"cross-bull":"cross-bear")+'">'+esc(ma.crossLabel.text)+'</span>');
+    if (s.potential_pct!=null) badges.push('<span class="indicator-chip potential">Potensi ~'+s.potential_pct+'%</span>');
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div>'+verdictHtml+'</div>'
@@ -494,6 +521,51 @@ footer .mono{font-size:11px;}
     else { items=rec.swing||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Swing"; document.getElementById("recsSub").textContent="Update harian 19:00 WIB"; }
     document.getElementById("cardGrid").innerHTML = items.length ? renderGroupedByVerdict(items) : '<p class="empty-note">Belum ada rekomendasi.</p>';
   }
+  // Real, verifiable win rate: yesterday's (and older) Buy/Sell calls checked against
+  // today's actual price. Not shown until there's at least one evaluated call - an empty
+  // "0%" would misleadingly look like a track record that just hasn't started yet.
+  function renderWinRate(d){
+    var wr=d.win_rate, el=document.getElementById("winrateStrip");
+    if (!wr){ el.innerHTML=""; return; }
+    var rows=[
+      ["Win Rate Keseluruhan", wr.overall],
+      ["Scalping", wr.scalping],
+      ["Swing", wr.swing],
+      ["Investment", wr.investment]
+    ];
+    el.innerHTML=rows.map(function(r){
+      var stat=r[1];
+      if (!stat || stat.total===0){
+        return '<div class="winrate-cell na"><div class="lbl">'+esc(r[0])+'</div><div class="val">Belum ada data</div></div>';
+      }
+      return '<div class="winrate-cell"><div class="lbl">'+esc(r[0])+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
+    }).join("");
+  }
+  // Friday's run: no new recommendations, a recap of the real (already-verified) results
+  // from this week's calls instead. Toggles panelWeeklySummary/panelRecs visibility.
+  function renderWeeklySummary(d){
+    var isFriday=!!d.is_weekly_summary_day, ws=d.weekly_summary;
+    document.getElementById("panelWeeklySummary").hidden=!isFriday;
+    document.getElementById("panelRecs").hidden=isFriday;
+    if (!isFriday || !ws) return;
+    document.getElementById("weeklySummarySub").textContent=ws.week_label||"";
+    document.getElementById("weeklyHeadline").textContent=ws.headline||"—";
+    document.getElementById("weeklyRecap").textContent=ws.recap||"";
+    var rows=[["Win Rate Minggu Ini",ws.stats.overall],["Scalping",ws.stats.scalping],["Swing",ws.stats.swing],["Investment",ws.stats.investment]];
+    document.getElementById("weeklyStatsGrid").innerHTML=rows.map(function(r){
+      var stat=r[1];
+      if (!stat||stat.total===0) return '<div class="winrate-cell na"><div class="lbl">'+esc(r[0])+'</div><div class="val">Belum ada data</div></div>';
+      return '<div class="winrate-cell"><div class="lbl">'+esc(r[0])+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
+    }).join("");
+    function pickCell(label,pick){
+      if (!pick) return '<div class="pick-cell"><div class="lbl">'+esc(label)+'</div><div class="meta">Belum ada data</div></div>';
+      var up=pick.edge>=0;
+      return '<div class="pick-cell"><div class="lbl">'+esc(label)+'</div>'
+        + '<span class="ticker-line">'+esc(pick.ticker)+'</span><span class="edge tab-nums '+(up?"up":"down")+'">'+(up?"+":"")+pick.edge+'%</span>'
+        + '<div class="meta">'+esc(pick.strategy)+' &middot; '+esc(pick.verdict)+' &middot; dipanggil '+esc(pick.trading_date)+'</div></div>';
+    }
+    document.getElementById("weeklyPicksGrid").innerHTML=pickCell("Performa Terbaik",ws.best_pick)+pickCell("Performa Terburuk",ws.worst_pick);
+  }
   function renderWatch(d){
     document.getElementById("watchList").innerHTML=(d.watchouts||[]).map(function(w){ return '<li class="watch-item"><span class="watch-ticker">'+esc(w.ticker)+'</span><span class="watch-reason"><b>'+esc(w.name)+'.</b> '+esc(w.reason)+'</span></li>'; }).join("")||'<li class="empty-note">Tidak ada.</li>';
   }
@@ -503,7 +575,7 @@ footer .mono{font-size:11px;}
   }
   function render(){
     var d=state.data; if (!d) return;
-    renderHeader(d); renderSummary(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWatch(d); renderBriefing(d);
+    renderHeader(d); renderSummary(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWinRate(d); renderWeeklySummary(d); renderWatch(d); renderBriefing(d);
     computeStatus();
   }
 

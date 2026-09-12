@@ -1,10 +1,10 @@
 # Watchlist IHSG
 
-Dashboard watchlist IHSG yang update otomatis tiap hari bursa (Senin-Jumat) jam 19:00 WIB, setelah bursa tutup. Tanpa Netlify, tanpa server, tanpa biaya bulanan — semuanya jalan di GitHub (Actions + Pages).
+Dashboard watchlist IHSG yang update otomatis jam 19:00 WIB tiap hari kecuali Sabtu, setelah bursa tutup. Minggu malam sengaja tetap jalan sebagai laporan persiapan Senin, memakai data closing Jumat (bursa memang tidak buka Sabtu/Minggu, jadi tidak ada data baru di hari itu - `trading_date` di dashboard selalu jujur menunjukkan tanggal sesi bursa yang sebenarnya, bukan tanggal script-nya dijalankan). Tanpa Netlify, tanpa server, tanpa biaya bulanan — semuanya jalan di GitHub (Actions + Pages).
 
 ## Arsitektur
 
-- **GitHub Actions** (`.github/workflows/daily-update.yml`) — jalan otomatis tiap hari bursa jam 19:00 WIB (cron `0 12 * * 1-5`, UTC). Ambil data dari Zapi (TradingView + IDX resmi, termasuk broker summary, fundamentals, berita, corporate action), hitung semua indikator teknikal secara deterministik, panggil Claude API hanya untuk menulis narasi teks, lalu **commit hasilnya langsung ke repo** sebagai file JSON (`docs/data/latest.json`).
+- **GitHub Actions** (`.github/workflows/daily-update.yml`) — jalan otomatis jam 19:00 WIB tiap hari kecuali Sabtu (cron `0 12 * * 0-5`, UTC). Ambil data dari Zapi (TradingView + IDX resmi, termasuk broker summary, fundamentals, berita, corporate action), hitung semua indikator teknikal secara deterministik, panggil Claude API hanya untuk menulis narasi teks, lalu **commit hasilnya langsung ke repo** sebagai file JSON (`docs/data/latest.json` + `docs/data/track-record.json` untuk win rate).
 - **GitHub Pages** — meng-host `docs/index.html` (dashboard statis) yang fetch `docs/data/latest.json` langsung sebagai file, tanpa API/server sama sekali.
 - **`lib/`** — logic inti (pipeline, indikator, klien Zapi, klien Claude), dipakai oleh `scripts/run-pipeline.mjs`.
 
@@ -42,7 +42,7 @@ Jangan tunggu jadwal otomatis untuk verifikasi pertama kali:
 
 ### 4. Jadwal otomatis
 
-Sudah otomatis aktif dari `cron: "0 12 * * 1-5"` di workflow file — tidak perlu setting tambahan. GitHub Actions akan menjalankannya sendiri tiap hari bursa jam 19:00 WIB, commit hasilnya ke `docs/data/latest.json`, dan GitHub Pages otomatis menyajikan versi terbaru itu.
+Sudah otomatis aktif dari `cron: "0 12 * * 0-5"` di workflow file — tidak perlu setting tambahan. GitHub Actions akan menjalankannya sendiri jam 19:00 WIB tiap hari kecuali Sabtu (termasuk Minggu malam, sebagai laporan persiapan Senin dari data closing Jumat), commit hasilnya ke `docs/data/`, dan GitHub Pages otomatis menyajikan versi terbaru itu.
 
 Anda bisa lihat riwayat semua run (otomatis maupun manual) di tab **Actions** kapan saja.
 
@@ -53,6 +53,10 @@ Sekali jalan (baik otomatis maupun manual), pipeline memakai:
 - Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 210 hari, chart intraday per jam, rating teknikal TradingView, dan data fundamental.
 - Broker summary top 10 aktif untuk 1 saham unggulan, berita bursa, dan corporate action untuk 10 saham Buy.
 - Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 + 1 + 10 = ~378 call/hari kalau dijalankan sekali sehari — jauh di bawah kuota bulanan Pro (~11.000+ call/bulan kalau jalan tiap hari bursa).
+
+## Win rate
+
+Setiap rekomendasi Buy/Sell (bukan Hold) dicatat dengan harga saat direkomendasikan. Di run berikutnya, harga sungguhan (dari screener asli) dicek terhadap catatan itu untuk menentukan benar/salah — ini angka real yang bisa diverifikasi, bukan estimasi. Disimpan di `docs/data/track-record.json`, mulai dilacak sejak **14 September 2026** (bukan sejak awal, biar adil - tidak diseed data lama yang tidak lengkap). Field "Potensi %" di kartu saham Buy/Strong Buy itu BEDA - itu skor keyakinan dari sinyal teknikal/fundamental saat ini (transparan, dibatasi 50-90%), bukan win rate historisnya.
 
 ## Catatan: kenapa pindah dari Netlify
 
