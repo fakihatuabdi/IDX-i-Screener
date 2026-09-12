@@ -23,6 +23,23 @@ function capTier(marketCap) {
   return "Small Cap";
 }
 
+// Retries a flaky call once after a short delay before giving up - covers transient
+// provider hiccups (seen in practice: a momentary "symbol not found" for a perfectly
+// valid, liquid ticker like BUMI that succeeds again a moment later).
+async function withRetry(fn, { attempts = 4, delayMs = 800 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      // Backs off a bit more each time, so a burst of transient errors doesn't just hammer the API again.
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 function priceBand(strategy, verdict, lastClose) {
   const key = verdict === "Sell" || verdict === "Strong Sell" ? "Sell" : verdict === "Hold" ? "Hold" : "Buy";
   const [em, tm, sm] = STRATEGY_BANDS[strategy][key];
@@ -93,23 +110,32 @@ export async function buildDashboard() {
   const shortlist = [...buyPicks, ...holdPicks, ...sellPicks];
 
   // ---- 4. Fetch OHLCV history + compute indicators for the shortlist (20 tickers - well within Pro quota) ----
-  const withIndicators = await Promise.all(
+  // Per the "skip and continue" error-handling rule: if chart data for one ticker isn't
+  // available (delisted symbol, provider quirk, etc.), drop that ticker and keep going -
+  // never let one bad symbol abort the whole daily update.
+  const withIndicatorsRaw = await Promise.all(
     shortlist.map(async (s) => {
-      const candles = await zapi.chart({ symbol: `IDX:${s.ticker}`, count: 210 });
-      const ind = computeIndicators(candles);
-      // Real TradingView technical rating, used to gate the Investment strategy below.
-      // Never fatal: if this single call fails or the quota is hit, skip and fall back
-      // to our own SMA-derived verdict for this ticker only (per the "skip and continue" rule).
-      let tv_verdict = null;
       try {
-        const tv = await zapi.technicals({ symbol: `IDX:${s.ticker}` });
-        tv_verdict = tv.summary || null;
+        const candles = await withRetry(() => zapi.chart({ symbol: `IDX:${s.ticker}`, count: 210 }));
+        const ind = computeIndicators(candles);
+        // Real TradingView technical rating, used to gate the Investment strategy below.
+        // Never fatal: if this single call fails or the quota is hit, skip and fall back
+        // to our own SMA-derived verdict for this ticker only.
+        let tv_verdict = null;
+        try {
+          const tv = await withRetry(() => zapi.technicals({ symbol: `IDX:${s.ticker}` }));
+          tv_verdict = tv.summary || null;
+        } catch (e) {
+          console.error(`technicals(${s.ticker}) failed after retry, falling back to computed verdict:`, e.message);
+        }
+        return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap) };
       } catch (e) {
-        console.error(`technicals(${s.ticker}) failed, falling back to computed verdict:`, e.message);
+        console.error(`chart(${s.ticker}) failed after retry, skipping this ticker:`, e.message);
+        return null;
       }
-      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap) };
     })
   );
+  const withIndicators = withIndicatorsRaw.filter(Boolean);
 
   // ---- 5. Broker/bandarmology highlight on the single biggest net-buy pick ----
   let bandarmology = null;
