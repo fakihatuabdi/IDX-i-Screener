@@ -108,7 +108,7 @@ export function computeIndicators(candles) {
     rvol: round2(rvol),
     pattern, verdict,
     prior20High: round1(prior20High), prior20Low: round1(prior20Low),
-    candles20: candles.slice(-20).map((c) => ({ o: c.open, h: c.high, l: c.low, c: c.close, v: c.volume })),
+    candles20: candles.slice(-20).map((c) => ({ o: c.open, h: c.high, l: c.low, c: c.close, v: c.volume, t: c.date })),
   };
 }
 

@@ -37,7 +37,7 @@ export function idxForeignFlow({ start = 0, length = 200 } = {}) {
 /** Daily OHLCV candles for a symbol, e.g. "IDX:BBCA" or "IDX:COMPOSITE". */
 export function chart({ symbol, count = 210, resolution = "1D" }) {
   return callZapi("/v1/finance:tradingview/chart", { symbol, market: "indonesia", resolution, count }).then(
-    (d) => d.candles.map((c) => ({ open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume }))
+    (d) => d.candles.map((c) => ({ open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume, date: c.date }))
   );
 }
 

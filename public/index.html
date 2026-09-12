@@ -115,8 +115,8 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .verdict-section-head.buy .dot{background:var(--good);} .verdict-section-head.hold .dot{background:var(--text-muted);} .verdict-section-head.sell .dot{background:var(--critical);}
 .verdict-section-head h3{font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-2);}
 .verdict-section-head .count{font-size:11.5px; color:var(--text-muted);}
-.mini-chart-wrap{background:var(--surface); border-radius:6px; padding:6px; overflow:hidden;} .mini-chart-wrap svg{display:block; width:100%; height:auto;}
-#ihsgChartWrap{margin:16px 0;} #ihsgChartWrap .mini-chart-wrap{background:var(--surface-2); padding:14px;}
+.mini-chart-wrap{background:#131722; border-radius:6px; padding:4px; overflow:hidden;} .mini-chart-wrap svg{display:block; width:100%; height:auto;}
+#ihsgChartWrap{margin:16px 0;} #ihsgChartWrap .mini-chart-wrap{padding:10px;}
 .card-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; margin-top:6px;}
 .stock-card{background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:16px; display:flex; flex-direction:column; gap:12px;}
 .stock-card-head{display:flex; align-items:center; gap:10px;}
@@ -248,17 +248,53 @@ footer .mono{font-size:11px;}
     investment:"Bulan - tahun. Fokus: SMA50/SMA200, verdict teknikal Buy/Strong Buy."
   };
 
+  function fmtAxisTime(iso){
+    if(!iso) return "";
+    try{ var d=new Date(iso); return d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"}); }catch(e){ return ""; }
+  }
+  function fmtAxisPrice(v){
+    if (Math.abs(v) >= 1000) return IDR.format(Math.round(v));
+    return v.toFixed(v < 10 ? 2 : 0);
+  }
+  // TradingView-style dark intraday candle chart (jam buka - jam tutup bursa hari
+  // terakhir): black background, green/red candles, gridlines with price labels on
+  // the Y-axis and hour labels on the X-axis.
   function renderCandles(candles,w,h){
     if(!candles||!candles.length) return "";
-    w=w||320; h=h||90; var padX=4,padY=6,n=candles.length,slot=(w-padX*2)/n,bodyW=Math.max(2,slot*0.6);
-    var lo=Math.min.apply(null,candles.map(function(c){return c.l;})), hi=Math.max.apply(null,candles.map(function(c){return c.h;})), range=(hi-lo)||1;
-    function y(v){ return padY+(h-padY*2)*(1-(v-lo)/range); }
+    w=w||320; h=h||190;
+    var mLeft=4, mRight=58, mTop=10, mBottom=22;
+    var plotW=w-mLeft-mRight, plotH=h-mTop-mBottom;
+    var n=candles.length, slot=plotW/n, bodyW=Math.max(2,slot*0.62);
+    var lo=Math.min.apply(null,candles.map(function(c){return c.l;})), hi=Math.max.apply(null,candles.map(function(c){return c.h;}));
+    var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
+    function y(v){ return mTop+plotH*(1-(v-lo)/range); }
+    function x(i){ return mLeft+i*slot+slot/2; }
+
+    var TICKS=4, grid="", yLabels="";
+    for (var t=0;t<=TICKS;t++){
+      var val=lo+range*t/TICKS, yy=y(val);
+      grid+='<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="#2a2e39" stroke-width="1"/>';
+      yLabels+='<text x="'+(w-mRight+6)+'" y="'+(yy+3.5)+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace">'+esc(fmtAxisPrice(val))+'</text>';
+    }
+
+    // Intraday sessions are short (~7 hourly bars), so label every bar rather than sampling.
+    var xLabelCount=Math.min(8,n), xLabels="";
+    for (var k=0;k<xLabelCount;k++){
+      var idx=Math.round(k*(n-1)/(xLabelCount-1||1)), lx=x(idx);
+      var timeStr=fmtAxisTime(candles[idx].t);
+      if (timeStr) xLabels+='<text x="'+lx+'" y="'+(h-6)+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
+    }
+
     var bars=candles.map(function(c,i){
-      var x=padX+i*slot+slot/2, up=c.c>=c.o, color=up?"var(--good)":"var(--critical)";
+      var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
       var top=Math.max(c.o,c.c), bot=Math.min(c.o,c.c), bodyTop=y(top), bodyBot=y(bot), bodyH=Math.max(1,bodyBot-bodyTop);
-      return '<line x1="'+x+'" y1="'+y(c.h)+'" x2="'+x+'" y2="'+y(c.l)+'" stroke="'+color+'" stroke-width="1"/><rect x="'+(x-bodyW/2)+'" y="'+bodyTop+'" width="'+bodyW+'" height="'+bodyH+'" fill="'+color+'"/>';
+      return '<line x1="'+xx+'" y1="'+y(c.h)+'" x2="'+xx+'" y2="'+y(c.l)+'" stroke="'+color+'" stroke-width="1"/><rect x="'+(xx-bodyW/2)+'" y="'+bodyTop+'" width="'+bodyW+'" height="'+bodyH+'" fill="'+color+'"/>';
     }).join("");
-    return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+bars+'</svg></div>';
+
+    return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
+      + '<rect x="0" y="0" width="'+w+'" height="'+h+'" fill="#131722"/>'
+      + grid + bars + yLabels + xLabels
+      + '</svg></div>';
   }
 
   function computeStatus(){
@@ -279,7 +315,7 @@ footer .mono{font-size:11px;}
   function renderSummary(d){
     document.getElementById("regimeBadge").textContent=d.market_summary.regime;
     document.getElementById("marketSummaryText").textContent=d.market_summary.summary;
-    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,160);
+    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240);
     var maxAbs=Math.max.apply(null,d.market_summary.sectors.map(function(s){return Math.abs(s.change_pct);}))||1;
     document.getElementById("sectorGrid").innerHTML=d.market_summary.sectors.map(function(s){
       var up=s.change_pct>=0, pct=Math.min(100,Math.abs(s.change_pct)/maxAbs*50);

@@ -53,16 +53,37 @@ function priceBand(strategy, verdict, lastClose) {
   };
 }
 
+/** The trading-day key (YYYY-MM-DD) an ISO timestamp falls on in WIB (UTC+7). */
+function wibDateKey(iso) {
+  const wib = new Date(new Date(iso).getTime() + 7 * 3600 * 1000);
+  return wib.toISOString().slice(0, 10);
+}
+
+/**
+ * Hourly candles for the LAST trading day only (market open to close, WIB) - used
+ * for every chart on the dashboard. Fetches a small window (count=12 hourly bars is
+ * comfortably more than one session, ~7 bars) and keeps only the bars that share the
+ * most recent bar's calendar date, discarding the earlier day(s) that came along.
+ */
+async function fetchIntradayCandles(symbol) {
+  const bars = await withRetry(() => zapi.chart({ symbol, count: 12, resolution: "60" }));
+  if (!bars.length) return [];
+  const lastKey = wibDateKey(bars[bars.length - 1].date);
+  return bars
+    .filter((b) => wibDateKey(b.date) === lastKey)
+    .map((b) => ({ o: b.open, h: b.high, l: b.low, c: b.close, t: b.date }));
+}
+
 export async function buildDashboard() {
   // ---- 1. Bulk data (Zapi Pro tier: cover the whole exchange, not just a slice) ----
-  const [screenerItems, ffPage0, ffPage1, ffPage2, ffPage3, ihsgIndex, ihsgChartRaw] = await Promise.all([
+  const [screenerItems, ffPage0, ffPage1, ffPage2, ffPage3, ihsgIndex, ihsgIntraday] = await Promise.all([
     zapi.screener({ count: 300, sortBy: "volume", sortOrder: "desc" }),
     zapi.idxForeignFlow({ start: 0, length: 200 }),
     zapi.idxForeignFlow({ start: 200, length: 200 }),
     zapi.idxForeignFlow({ start: 400, length: 200 }),
     zapi.idxForeignFlow({ start: 600, length: 200 }),
     zapi.idxIndexSummary(),
-    zapi.chart({ symbol: "IDX:COMPOSITE", count: 25 }),
+    fetchIntradayCandles("IDX:COMPOSITE"),
   ]);
   const ffTop = ffPage0, ffTail = [...ffPage1, ...ffPage2, ...ffPage3];
 
@@ -72,7 +93,7 @@ export async function buildDashboard() {
     change: composite.Change,
     change_pct: Math.round((composite.Change / composite.Previous) * 10000) / 100,
     prev_close: composite.Previous,
-    candles: ihsgChartRaw.slice(-25).map((c) => ({ o: Math.round(c.open * 10) / 10, h: Math.round(c.high * 10) / 10, l: Math.round(c.low * 10) / 10, c: Math.round(c.close * 10) / 10 })),
+    candles: ihsgIntraday,
   };
 
   // ---- 2. Sector aggregates (real, deterministic - not sampled) ----
@@ -108,6 +129,8 @@ export async function buildDashboard() {
   // symbol is replaced, never allowed to abort the whole daily update.
   async function fetchIndicatorsFor(s) {
     try {
+      // Daily history (210 sessions) - used to compute SMA/EMA/RSI/RVOL/pattern. Unaffected
+      // by the chart display change below; indicators still need real daily history.
       const candles = await withRetry(() => zapi.chart({ symbol: `IDX:${s.ticker}`, count: 210 }));
       const ind = computeIndicators(candles);
       // Real TradingView technical rating, used to gate the Investment strategy below.
@@ -120,7 +143,16 @@ export async function buildDashboard() {
       } catch (e) {
         console.error(`technicals(${s.ticker}) unavailable, falling back to computed verdict:`, e.message);
       }
-      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap) };
+      // Intraday hourly candles for the chart shown on the card - never fatal: fall
+      // back to the last 7 daily candles (as a coarser stand-in) if this fails.
+      let intradayCandles;
+      try {
+        intradayCandles = await fetchIntradayCandles(`IDX:${s.ticker}`);
+      } catch (e) {
+        console.error(`intraday chart(${s.ticker}) unavailable, falling back to daily candles:`, e.message);
+        intradayCandles = ind.candles20.slice(-7);
+      }
+      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap), intradayCandles };
     } catch (e) {
       console.error(`chart(${s.ticker}) unavailable, replacing with next candidate:`, e.message);
       return null;
@@ -213,7 +245,7 @@ export async function buildDashboard() {
         technical: `SMA50 ${c.sma50} | SMA200 ${c.sma200} | RSI(14) ${c.rsi14} | Pola: ${c.pattern}`,
         pattern: c.pattern,
         rvol: c.rvol,
-        candles: c.candles20,
+        candles: c.intradayCandles,
       };
     });
   }
