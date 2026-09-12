@@ -71,7 +71,7 @@ async function fetchIntradayCandles(symbol) {
   const lastKey = wibDateKey(bars[bars.length - 1].date);
   return bars
     .filter((b) => wibDateKey(b.date) === lastKey)
-    .map((b) => ({ o: b.open, h: b.high, l: b.low, c: b.close, t: b.date }));
+    .map((b) => ({ o: b.open, h: b.high, l: b.low, c: b.close, t: b.date, v: b.volume }));
 }
 
 export async function buildDashboard() {

@@ -259,15 +259,24 @@ footer .mono{font-size:11px;}
   // TradingView-style dark intraday candle chart (jam buka - jam tutup bursa hari
   // terakhir): black background, green/red candles, gridlines with price labels on
   // the Y-axis and hour labels on the X-axis.
+  function fmtAxisVolume(v){
+    if (v>=1e9) return (v/1e9).toFixed(1)+"B";
+    if (v>=1e6) return (v/1e6).toFixed(1)+"jt";
+    if (v>=1e3) return (v/1e3).toFixed(0)+"rb";
+    return String(Math.round(v));
+  }
   function renderCandles(candles,w,h){
     if(!candles||!candles.length) return "";
-    w=w||320; h=h||190;
-    var mLeft=4, mRight=58, mTop=10, mBottom=22;
-    var plotW=w-mLeft-mRight, plotH=h-mTop-mBottom;
-    var n=candles.length, slot=plotW/n, bodyW=Math.max(2,slot*0.62);
+    w=w||320; h=h||230;
+    var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
+    var mLeft=4, mRight=58, mTop=10, mBottomLabels=16, mBottomCaption=14;
+    var mBottom=mBottomLabels+mBottomCaption;
+    var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.2) : 0, volGap=hasVolume?6:0;
+    var priceH=h-mTop-mBottom-volH-volGap;
+    var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(2,slot*0.62);
     var lo=Math.min.apply(null,candles.map(function(c){return c.l;})), hi=Math.max.apply(null,candles.map(function(c){return c.h;}));
     var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
-    function y(v){ return mTop+plotH*(1-(v-lo)/range); }
+    function y(v){ return mTop+priceH*(1-(v-lo)/range); }
     function x(i){ return mLeft+i*slot+slot/2; }
 
     var TICKS=4, grid="", yLabels="";
@@ -276,14 +285,29 @@ footer .mono{font-size:11px;}
       grid+='<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="#2a2e39" stroke-width="1"/>';
       yLabels+='<text x="'+(w-mRight+6)+'" y="'+(yy+3.5)+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace">'+esc(fmtAxisPrice(val))+'</text>';
     }
+    yLabels+='<text x="'+(w-mRight+6)+'" y="'+(mTop-2)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace">Rp</text>';
+
+    // Volume sub-panel: bar height scaled to this chart's own max volume, colored by that bar's direction.
+    var volY0=mTop+priceH+volGap, volMax=hasVolume?Math.max.apply(null,candles.map(function(c){return c.v||0;})):1;
+    var volBars="";
+    if (hasVolume){
+      volBars=candles.map(function(c,i){
+        var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
+        var bh=Math.max(1,(c.v||0)/volMax*volH);
+        return '<rect x="'+(xx-bodyW/2)+'" y="'+(volY0+volH-bh)+'" width="'+bodyW+'" height="'+bh+'" fill="'+color+'" opacity="0.55"/>';
+      }).join("");
+      volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+8)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace">Vol</text>';
+    }
 
     // Intraday sessions are short (~7 hourly bars), so label every bar rather than sampling.
+    var xLabelY=mTop+priceH+(hasVolume?volGap+volH:0)+12;
     var xLabelCount=Math.min(8,n), xLabels="";
     for (var k=0;k<xLabelCount;k++){
       var idx=Math.round(k*(n-1)/(xLabelCount-1||1)), lx=x(idx);
       var timeStr=fmtAxisTime(candles[idx].t);
-      if (timeStr) xLabels+='<text x="'+lx+'" y="'+(h-6)+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
+      if (timeStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
     }
+    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace" text-anchor="middle">Jam (WIB)</text>';
 
     var bars=candles.map(function(c,i){
       var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
@@ -293,7 +317,7 @@ footer .mono{font-size:11px;}
 
     return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
       + '<rect x="0" y="0" width="'+w+'" height="'+h+'" fill="#131722"/>'
-      + grid + bars + yLabels + xLabels
+      + grid + bars + volBars + yLabels + xLabels + xCaption
       + '</svg></div>';
   }
 
