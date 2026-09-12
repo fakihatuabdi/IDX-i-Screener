@@ -276,11 +276,11 @@ footer .mono{font-size:11px;}
     if(!candles||!candles.length) return "";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
-    var mLeft=4, mRight=58, mTop=10, mBottomLabels=16, mBottomCaption=14;
+    var mLeft=4, mRight=44, mTop=10, mBottomLabels=13, mBottomCaption=11;
     var mBottom=mBottomLabels+mBottomCaption;
     var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.2) : 0, volGap=hasVolume?6:0;
     var priceH=h-mTop-mBottom-volH-volGap;
-    var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(2,slot*0.62);
+    var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(1.5,slot*0.32);
     var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlays.map(function(o){return o.value;}));
     var lo=Math.min.apply(null,priceVals), hi=Math.max.apply(null,priceVals);
     var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
@@ -291,9 +291,9 @@ footer .mono{font-size:11px;}
     for (var t=0;t<=TICKS;t++){
       var val=lo+range*t/TICKS, yy=y(val);
       grid+='<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="#2a2e39" stroke-width="1"/>';
-      yLabels+='<text x="'+(w-mRight+6)+'" y="'+(yy+3.5)+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace">'+esc(fmtAxisPrice(val))+'</text>';
+      yLabels+='<text x="'+(w-mRight+6)+'" y="'+(yy+3)+'" fill="#9199ad" font-size="8" font-family="IBM Plex Mono, monospace">'+esc(fmtAxisPrice(val))+'</text>';
     }
-    yLabels+='<text x="'+(w-mRight+6)+'" y="'+(mTop-2)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace">Rp</text>';
+    yLabels+='<text x="'+(w-mRight+6)+'" y="'+(mTop-2)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Rp</text>';
 
     // Volume sub-panel: bar height scaled to this chart's own max volume, colored by that bar's direction.
     var volY0=mTop+priceH+volGap, volMax=hasVolume?Math.max.apply(null,candles.map(function(c){return c.v||0;})):1;
@@ -304,7 +304,7 @@ footer .mono{font-size:11px;}
         var bh=Math.max(1,(c.v||0)/volMax*volH);
         return '<rect x="'+(xx-bodyW/2)+'" y="'+(volY0+volH-bh)+'" width="'+bodyW+'" height="'+bh+'" fill="'+color+'" opacity="0.55"/>';
       }).join("");
-      volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+8)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace">Vol</text>';
+      volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+7)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Vol</text>';
     }
 
     // Intraday sessions are short (~7 hourly bars), so label every bar rather than sampling.
@@ -313,9 +313,9 @@ footer .mono{font-size:11px;}
     for (var k=0;k<xLabelCount;k++){
       var idx=Math.round(k*(n-1)/(xLabelCount-1||1)), lx=x(idx);
       var timeStr=fmtAxisTime(candles[idx].t);
-      if (timeStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
+      if (timeStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(timeStr)+'</text>';
     }
-    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="9" font-family="IBM Plex Mono, monospace" text-anchor="middle">Jam (WIB)</text>';
+    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle">Jam (WIB)</text>';
 
     var bars=candles.map(function(c,i){
       var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
@@ -327,7 +327,7 @@ footer .mono{font-size:11px;}
     var overlayLines=overlays.map(function(o){
       var yy=y(o.value);
       return '<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="'+o.color+'" stroke-width="1.25" stroke-dasharray="4,3"/>'
-        + '<text x="'+mLeft+'" y="'+(yy-3)+'" fill="'+o.color+'" font-size="9.5" font-weight="700" font-family="IBM Plex Mono, monospace">'+esc(o.label)+'</text>';
+        + '<text x="'+mLeft+'" y="'+(yy-2.5)+'" fill="'+o.color+'" font-size="7.5" font-weight="700" font-family="IBM Plex Mono, monospace">'+esc(o.label)+'</text>';
     }).join("");
 
     return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
