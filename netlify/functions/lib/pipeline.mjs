@@ -26,14 +26,17 @@ function capTier(marketCap) {
 // Retries a flaky call once after a short delay before giving up - covers transient
 // provider hiccups (seen in practice: a momentary "symbol not found" for a perfectly
 // valid, liquid ticker like BUMI that succeeds again a moment later).
-async function withRetry(fn, { attempts = 4, delayMs = 800 } = {}) {
+async function withRetry(fn, { attempts = 4, delayMs = 400 } = {}) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (e) {
       lastErr = e;
-      // Backs off a bit more each time, so a burst of transient errors doesn't just hammer the API again.
+      // A 404 "symbol not found" is a definitive answer, not a transient hiccup - retrying
+      // it just burns time (and, multiplied across a whole shortlist, can push the function
+      // past its execution limit). Give up on it immediately instead.
+      if (e.status === 404) throw e;
       if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
     }
   }
@@ -97,45 +100,67 @@ export async function buildDashboard() {
   const buySide = [...merged].sort((a, b) => b.net_value - a.net_value);
   const sellSide = [...merged].sort((a, b) => a.net_value - b.net_value);
 
+  // ---- 4. Fetch OHLCV history + compute indicators, one bucket at a time, with automatic
+  // backfill: if a candidate's chart data isn't available (delisted symbol, thin/new listing
+  // the provider hasn't backfilled, etc.), the next-priority candidate from the same pool
+  // takes its place - so the shortlist still ends up with the full 10 Buy / 5 Hold / 5 Sell
+  // (20 tickers) instead of silently shrinking. Per the "skip and continue" rule: a bad
+  // symbol is replaced, never allowed to abort the whole daily update.
+  async function fetchIndicatorsFor(s) {
+    try {
+      const candles = await withRetry(() => zapi.chart({ symbol: `IDX:${s.ticker}`, count: 210 }));
+      const ind = computeIndicators(candles);
+      // Real TradingView technical rating, used to gate the Investment strategy below.
+      // Never fatal: if this single call fails or the quota is hit, fall back to our
+      // own SMA-derived verdict for this ticker only.
+      let tv_verdict = null;
+      try {
+        const tv = await withRetry(() => zapi.technicals({ symbol: `IDX:${s.ticker}` }));
+        tv_verdict = tv.summary || null;
+      } catch (e) {
+        console.error(`technicals(${s.ticker}) unavailable, falling back to computed verdict:`, e.message);
+      }
+      return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap) };
+    } catch (e) {
+      console.error(`chart(${s.ticker}) unavailable, replacing with next candidate:`, e.message);
+      return null;
+    }
+  }
+
+  /** Fetches indicators for `pool` in priority order until `targetCount` succeed, or the pool runs out. */
+  async function fillBucket(pool, targetCount) {
+    const results = [];
+    let cursor = 0;
+    while (results.length < targetCount && cursor < pool.length) {
+      const need = targetCount - results.length;
+      const batch = pool.slice(cursor, cursor + need);
+      cursor += batch.length;
+      const fetched = await Promise.all(batch.filter((c) => !usedTickers.has(c.ticker)).map(fetchIndicatorsFor));
+      for (const f of fetched) {
+        if (f) {
+          results.push(f);
+          usedTickers.add(f.ticker);
+        }
+      }
+    }
+    return results;
+  }
+
   // Zapi Pro tier: full 10 Buy / 5 Hold / 5 Sell shortlist (20 tickers), shared across all 3 strategies.
   const SHORTLIST_BUY = 10, SHORTLIST_SELL = 5, SHORTLIST_HOLD = 5;
-  const buyPicks = buySide.slice(0, SHORTLIST_BUY);
-  const sellPicks = sellSide.slice(0, SHORTLIST_SELL);
-  const usedTickers = new Set([...buyPicks, ...sellPicks].map((x) => x.ticker));
+  const usedTickers = new Set();
+
+  const buyPicks = await fillBucket(buySide, SHORTLIST_BUY);
+
   const holdPool = merged
     .filter((m) => !usedTickers.has(m.ticker) && Math.abs(m.changePercent) < 1.2)
     .sort((a, b) => Math.abs(a.net_value) - Math.abs(b.net_value));
-  const holdPicks = holdPool.slice(0, SHORTLIST_HOLD);
+  const holdPicks = await fillBucket(holdPool, SHORTLIST_HOLD);
 
-  const shortlist = [...buyPicks, ...holdPicks, ...sellPicks];
+  const sellPool = sellSide.filter((m) => !usedTickers.has(m.ticker));
+  const sellPicks = await fillBucket(sellPool, SHORTLIST_SELL);
 
-  // ---- 4. Fetch OHLCV history + compute indicators for the shortlist (20 tickers - well within Pro quota) ----
-  // Per the "skip and continue" error-handling rule: if chart data for one ticker isn't
-  // available (delisted symbol, provider quirk, etc.), drop that ticker and keep going -
-  // never let one bad symbol abort the whole daily update.
-  const withIndicatorsRaw = await Promise.all(
-    shortlist.map(async (s) => {
-      try {
-        const candles = await withRetry(() => zapi.chart({ symbol: `IDX:${s.ticker}`, count: 210 }));
-        const ind = computeIndicators(candles);
-        // Real TradingView technical rating, used to gate the Investment strategy below.
-        // Never fatal: if this single call fails or the quota is hit, skip and fall back
-        // to our own SMA-derived verdict for this ticker only.
-        let tv_verdict = null;
-        try {
-          const tv = await withRetry(() => zapi.technicals({ symbol: `IDX:${s.ticker}` }));
-          tv_verdict = tv.summary || null;
-        } catch (e) {
-          console.error(`technicals(${s.ticker}) failed after retry, falling back to computed verdict:`, e.message);
-        }
-        return { ...s, ...ind, tv_verdict, cap_tier: capTier(s.marketCap) };
-      } catch (e) {
-        console.error(`chart(${s.ticker}) failed after retry, skipping this ticker:`, e.message);
-        return null;
-      }
-    })
-  );
-  const withIndicators = withIndicatorsRaw.filter(Boolean);
+  const withIndicators = [...buyPicks, ...holdPicks, ...sellPicks];
 
   // ---- 5. Broker/bandarmology highlight on the single biggest net-buy pick ----
   let bandarmology = null;

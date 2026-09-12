@@ -11,7 +11,9 @@ async function callZapi(path, params) {
   const res = await fetch(url, { headers: { "x-api-key": key, Accept: "application/json" } });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Zapi ${path} failed: ${res.status} ${body.slice(0, 300)}`);
+    const err = new Error(`Zapi ${path} failed: ${res.status} ${body.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
   }
   const json = await res.json();
   return json.data;
