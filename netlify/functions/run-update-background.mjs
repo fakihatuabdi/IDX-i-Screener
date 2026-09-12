@@ -9,13 +9,11 @@
 import { getStore } from "@netlify/blobs";
 import { runAndStore } from "./lib/pipeline.mjs";
 
-export async function handler() {
-  // Diagnostic: prove Blobs writes work at all in this function type, before the
-  // heavier pipeline runs. If even this never shows up in get-dashboard's debug
-  // field, the problem is Blobs/background-function context, not the pipeline logic.
+export async function handler(event, context) {
+  console.log("run-update-background: handler invoked", { hasEvent: !!event, hasContext: !!context });
   try {
     const store = getStore("ihsg-dashboard");
-    await store.setJSON("last-run-status", { ok: null, at: new Date().toISOString(), phase: "handler-started" });
+    await store.setJSON("last-run-status", { ok: null, at: new Date().toISOString(), phase: "handler-started-v2" });
   } catch (e) {
     console.error("diagnostic Blobs write failed at handler start:", e);
   }

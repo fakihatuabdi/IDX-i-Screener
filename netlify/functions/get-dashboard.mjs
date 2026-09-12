@@ -9,9 +9,10 @@ export default async function handler() {
   // otherwise reach anyone - this is how they get surfaced without digging through
   // Netlify's own log UI.
   const lastRunStatus = await store.get("last-run-status", { type: "json" }).catch(() => null);
+  const cjsTest = await store.get("cjs-background-test", { type: "json" }).catch(() => null);
 
   if (!data) {
-    return new Response(JSON.stringify({ ok: false, message: "Belum ada data - jalankan update pertama dulu.", _debug_last_run: lastRunStatus }), {
+    return new Response(JSON.stringify({ ok: false, message: "Belum ada data - jalankan update pertama dulu.", _debug_last_run: lastRunStatus, _debug_cjs_test: cjsTest }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -25,7 +26,7 @@ export default async function handler() {
     if (h) history.push(h);
   }
 
-  return new Response(JSON.stringify({ ok: true, ...data, history, _debug_last_run: lastRunStatus }), {
+  return new Response(JSON.stringify({ ok: true, ...data, history, _debug_last_run: lastRunStatus, _debug_cjs_test: cjsTest }), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
   });
