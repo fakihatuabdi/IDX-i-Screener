@@ -13,5 +13,5 @@
 
 [[redirects]]
   from = "/api/run-update"
-  to = "/.netlify/functions/run-update"
+  to = "/.netlify/functions/run-update-background"
   status = 200
