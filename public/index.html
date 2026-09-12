@@ -58,8 +58,6 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
 .ticker-meta{margin-left:auto; display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--text-2);}
 .ticker-meta b{color:var(--text-1); font-family:"IBM Plex Mono",monospace;}
-.sample-banner{margin-top:16px; padding:10px 14px; border-radius:8px; background:var(--warning-soft); border:1px solid var(--border); color:var(--text-1); font-size:12.5px; display:flex; gap:8px; align-items:center;}
-.sample-banner b{color:var(--warning);}
 .panel{background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-top:20px; padding:20px 22px; box-shadow:var(--shadow); border-left:2px solid var(--rail, var(--border));}
 .panel.info{--rail:var(--accent);} .panel.bull{--rail:var(--good);} .panel.watch{--rail:var(--warning);}
 .panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
@@ -175,11 +173,6 @@ footer .mono{font-size:11px;}
 </div>
 
 <div class="wrap">
-  <div class="sample-banner" id="sampleBanner" hidden>
-    <span>&#9888;</span>
-    <span><b>Data contoh.</b> Belum ada hasil update pertama tersimpan &mdash; jalankan <code>/api/run-update</code> sekali secara manual, atau tunggu jadwal otomatis 08:00 WIB.</span>
-  </div>
-
   <section class="panel info" id="panelSummary">
     <div class="panel-head"><div><div class="eyebrow">Ringkasan Kondisi Pasar</div><h2>Regime &amp; Sektor</h2></div></div>
     <span class="regime-badge" id="regimeBadge">&mdash;</span>
@@ -248,7 +241,7 @@ footer .mono{font-size:11px;}
   function fmtDateTime(iso){ if(!iso) return "&mdash;"; try{ var d=new Date(iso); return d.toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"})+" WIB"; }catch(e){ return iso; } }
   function esc(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
-  var state = { data:null, isSample:true, strategy:"swing", online:null };
+  var state = { data:null, strategy:"swing", online:null };
   var STRATEGY_NOTES = {
     scalping:"Intraday, 1 hari. Fokus: RVOL, EMA13/21, RSI(5), breakout support/resistance.",
     swing:"Beberapa hari - minggu. Fokus: SMA20/50, RSI(14), pola Higher-High/Higher-Low, verdict teknikal.",
@@ -360,7 +353,6 @@ footer .mono{font-size:11px;}
   }
   function render(){
     var d=state.data; if (!d) return;
-    document.getElementById("sampleBanner").hidden = !state.isSample;
     renderHeader(d); renderSummary(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWatch(d); renderBriefing(d);
     computeStatus();
   }
@@ -372,7 +364,7 @@ footer .mono{font-size:11px;}
   function load(){
     fetch("/api/dashboard").then(function(r){ return r.json(); }).then(function(json){
       state.online = true;
-      if (json && json.ok){ state.data = json; state.isSample = false; }
+      if (json && json.ok){ state.data = json; }
       render();
     }).catch(function(err){
       console.error("fetch /api/dashboard failed", err);
