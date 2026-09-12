@@ -70,7 +70,7 @@ Jangan tunggu jadwal otomatis untuk verifikasi pertama kali. Buka:
 https://<nama-site-anda>.netlify.app/api/run-update
 ```
 
-di browser (atau `curl`). Ini memanggil `daily-update.mjs` langsung. Kalau sukses akan balas JSON `{"ok":true,"trading_date":"..."}`. Cek juga tab **Functions -> daily-update -> Logs** di Netlify kalau ada error (biasanya env var yang belum ke-set, atau salah satu API key expired/limit).
+di browser (atau `curl`). Ini menjalankan `run-update.mjs` - pipeline yang sama persis dengan update terjadwal, hanya saja bisa dipanggil langsung lewat HTTP (Netlify tidak mengizinkan Scheduled Function seperti `daily-update.mjs` dipanggil langsung dari luar). Kalau sukses akan balas JSON `{"ok":true,"trading_date":"..."}`. Cek juga tab **Logs -> Function logs** di Netlify kalau ada error (biasanya env var yang belum ke-set, atau salah satu API key expired/limit).
 
 Setelah itu buka `https://<nama-site-anda>.netlify.app/` - dashboard akan tampil dengan data asli.
 
