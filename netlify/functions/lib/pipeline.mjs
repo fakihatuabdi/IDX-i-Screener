@@ -282,46 +282,94 @@ export async function buildDashboard() {
   const narrative = await writeNarrative({
     ihsg: { level: ihsg.level, change_pct: ihsg.change_pct },
     sectors,
-    candidates: withIndicators.map((c) => ({ ticker: c.ticker, verdict: c.verdict, changePercent: c.changePercent, net_value: c.net_value, rsi14: c.rsi14, pattern: c.pattern })),
+    candidates: withIndicators.map((c) => ({
+      ticker: c.ticker,
+      verdict: c.verdict,
+      changePercent: c.changePercent,
+      net_value: c.net_value,
+      rsi14: c.rsi14,
+      pattern: c.pattern,
+      fundamentals: c.fundamentals,
+    })),
   });
 
   // ---- 7. Assemble per-strategy recommendation lists (same shortlist, different price bands/lens) ----
-  // Investment specifically requires TradingView's own verdict to be Buy/Strong Buy - a blue chip
-  // with a real Sell/Neutral rating is never forced into the Buy bucket just for being a blue chip.
-  function investmentVerdict(c) {
+  // Verdict is the REAL TradingView technical rating (5 tiers: Strong Buy/Buy/Hold/Sell/Strong
+  // Sell) for every strategy, not just Investment - it's already fetched for all 20 tickers
+  // regardless, so there is no reason to fall back to the coarser 3-tier SMA rule unless the
+  // technicals() call itself failed for that one ticker.
+  function tvVerdictLabel(c) {
     if (c.tv_verdict) {
       if (c.tv_verdict.includes("strong_buy")) return "Strong Buy";
       if (c.tv_verdict.includes("buy")) return "Buy";
+      if (c.tv_verdict.includes("strong_sell")) return "Strong Sell";
       if (c.tv_verdict.includes("sell")) return "Sell";
       return "Hold";
     }
     return c.verdict; // fallback: technicals() failed for this ticker, use the SMA-derived verdict
   }
 
+  // Ranking: Strong Buy and Strong Sell are the highest-conviction, most actionable signals -
+  // they rank at the top regardless of direction. Hold (no real conviction either way) ranks
+  // last. Plain Buy/Sell sit in between.
+  function strengthScore(verdict) {
+    if (verdict === "Strong Buy" || verdict === "Strong Sell") return 2;
+    if (verdict === "Buy" || verdict === "Sell") return 1;
+    return 0; // Hold
+  }
+
+  // Investment-only tiebreaker: a simple, transparent composite of real fundamental fields
+  // (never estimated - a missing field just contributes 0). Higher ROE/dividend yield raise
+  // the score; higher PE/debt-to-equity lower it. This only reorders stocks that already
+  // share the same technical conviction tier above - it never overrides a Strong Buy/Strong
+  // Sell verdict, it just decides who ranks first among equals.
+  function fundamentalScore(f) {
+    if (!f) return 0;
+    let score = 0;
+    if (f.roe != null) score += Math.max(-20, Math.min(40, f.roe));
+    if (f.dividend_yield != null) score += f.dividend_yield * 2;
+    if (f.debt_to_equity != null) score -= f.debt_to_equity * 10;
+    if (f.pe_ttm != null && f.pe_ttm > 0) score -= Math.min(f.pe_ttm, 50) * 0.3;
+    return score;
+  }
+
   function buildStrategyList(strategy) {
-    return withIndicators.map((c, i) => {
-      const verdict = strategy === "investment" ? investmentVerdict(c) : c.verdict;
+    const items = withIndicators.map((c) => {
+      const verdict = tvVerdictLabel(c);
       const band = priceBand(strategy, verdict, c.lastClose);
+      const catalyst =
+        strategy === "investment"
+          ? (narrative.investment_catalysts || {})[c.ticker] || narrative.catalysts[c.ticker] || `Verdict ${verdict} berdasarkan rating TradingView dan fundamental yang tersedia.`
+          : narrative.catalysts[c.ticker] || `Verdict ${verdict} berdasarkan SMA50/SMA200 dan aliran asing.`;
       return {
-        rank: i + 1,
         ticker: c.ticker,
         name: c.name,
         cap_tier: c.cap_tier,
         verdict,
         ...band,
-        catalyst: narrative.catalysts[c.ticker] || `Verdict ${verdict} berdasarkan SMA50/SMA200 dan aliran asing.`,
-        source: strategy === "investment" ? "TradingView rating + IDX resmi" : "TradingView (via Zapi) + IDX resmi",
+        catalyst,
+        source: strategy === "investment" ? "TradingView rating + fundamental + IDX resmi" : "TradingView (via Zapi) + IDX resmi",
         technical: `SMA50 ${c.sma50} | SMA200 ${c.sma200} | RSI(14) ${c.rsi14} | Pola: ${c.pattern}`,
         pattern: c.pattern,
         rvol: c.rvol,
         candles: c.intradayCandles,
         fundamentals: c.fundamentals,
+        _sortStrength: strengthScore(verdict),
+        _sortFundamental: strategy === "investment" ? fundamentalScore(c.fundamentals) : 0,
         // Real daily-timeframe MA/EMA values (already computed above, no extra cost) -
         // drawn as reference lines on the chart so the intraday session can be read
         // against the stock's actual trend context (which line set is relevant depends
         // on strategy: EMA13/21 for Scalping, SMA20/50 for Swing, SMA50/200 for Investment).
         ma_lines: { sma20: c.sma20, sma50: c.sma50, sma200: c.sma200, ema13: c.ema13, ema21: c.ema21 },
       };
+    });
+
+    // Rank by conviction strength (Strong Buy/Strong Sell first, Hold last); for Investment,
+    // break ties among same-strength stocks using the fundamental composite score.
+    items.sort((a, b) => b._sortStrength - a._sortStrength || b._sortFundamental - a._sortFundamental);
+    return items.map((item, i) => {
+      const { _sortStrength, _sortFundamental, ...rest } = item;
+      return { rank: i + 1, ...rest };
     });
   }
 

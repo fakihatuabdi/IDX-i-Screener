@@ -16,7 +16,7 @@ export async function writeNarrative({ ihsg, sectors, candidates }) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const prompt = `Kamu menulis narasi untuk dashboard watchlist saham IHSG (Bahasa Indonesia).
-SEMUA ANGKA DI BAWAH INI SUDAH DIHITUNG DARI DATA REAL - jangan mengarang angka baru, jangan mengubah verdict/entry/target/stop_loss yang sudah diberikan. Tugasmu HANYA menulis teks (catalyst per saham, ringkasan regime pasar, briefing harian) berdasarkan angka yang ada.
+SEMUA ANGKA DI BAWAH INI SUDAH DIHITUNG DARI DATA REAL - jangan mengarang angka baru, jangan mengubah verdict/entry/target/stop_loss/fundamental yang sudah diberikan. Tugasmu HANYA menulis teks (catalyst per saham, ringkasan regime pasar, briefing harian) berdasarkan angka yang ada.
 
 DATA IHSG:
 ${JSON.stringify(ihsg)}
@@ -24,7 +24,7 @@ ${JSON.stringify(ihsg)}
 DATA SEKTOR (rata-rata perubahan harga per sektor, dari data real):
 ${JSON.stringify(sectors)}
 
-DAFTAR SAHAM KANDIDAT (verdict, entry/target/stop_loss, dan indikator SUDAH FINAL - jangan diubah):
+DAFTAR SAHAM KANDIDAT (verdict, entry/target/stop_loss, indikator teknikal, dan fundamental SUDAH FINAL - jangan diubah; field fundamental yang null berarti datanya memang tidak tersedia, jangan ditulis seolah ada angkanya):
 ${JSON.stringify(candidates)}
 
 Kembalikan HANYA JSON valid dengan struktur persis ini (tanpa markdown, tanpa penjelasan lain):
@@ -33,12 +33,13 @@ Kembalikan HANYA JSON valid dengan struktur persis ini (tanpa markdown, tanpa pe
   "market_summary": "1-2 kalimat ringkas kondisi pasar hari ini",
   "technical_overview": "1 paragraf overview teknikal pasar + observasi lintas saham kandidat",
   "briefing": "1 paragraf briefing harian singkat merangkum semuanya",
-  "catalysts": { "TICKER": "1-2 kalimat catalyst spesifik untuk saham ini berdasarkan verdict dan indikatornya", ... satu entri per ticker di daftar kandidat }
+  "catalysts": { "TICKER": "1-2 kalimat catalyst spesifik untuk saham ini berdasarkan verdict dan indikator TEKNIKAL-nya saja (jangan sebut angka fundamental di sini - ini dipakai untuk strategi Scalping/Swing yang murni teknikal)", ... satu entri per ticker di daftar kandidat },
+  "investment_catalysts": { "TICKER": "2-3 kalimat khusus untuk strategi Investment: WAJIB sebutkan angka fundamental riil yang tersedia untuk saham ini (PER, PBV, Dividend Yield, Payout Ratio, DER, ROE - hanya yang ada datanya, skip yang null), lalu simpulkan apakah valuasi & kualitas fundamentalnya mendukung atau melemahkan tesis investasi jangka panjang, dikombinasikan dengan verdict teknikalnya", ... satu entri per ticker di daftar kandidat }
 }`;
 
   const msg = await client.messages.create({
     model: MODEL,
-    max_tokens: 4000,
+    max_tokens: 4500,
     messages: [{ role: "user", content: prompt }],
   });
 
