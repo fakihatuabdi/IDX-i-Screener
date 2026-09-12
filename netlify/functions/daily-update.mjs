@@ -198,17 +198,23 @@ async function buildDashboard() {
   return dashboard;
 }
 
-async function handler(event) {
+async function handler(req) {
   try {
     const dashboard = await buildDashboard();
     const store = getStore("ihsg-dashboard");
     await store.setJSON("latest", dashboard);
     await store.setJSON(`history-${dashboard.meta.trading_date}`, { trading_date: dashboard.meta.trading_date, briefing: dashboard.briefing });
     console.log("Dashboard updated OK for", dashboard.meta.trading_date);
-    return { statusCode: 200, body: JSON.stringify({ ok: true, trading_date: dashboard.meta.trading_date }) };
+    return new Response(JSON.stringify({ ok: true, trading_date: dashboard.meta.trading_date }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
   } catch (err) {
     console.error("daily-update failed:", err);
-    return { statusCode: 500, body: JSON.stringify({ ok: false, error: err.message }) };
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
   }
 }
 
