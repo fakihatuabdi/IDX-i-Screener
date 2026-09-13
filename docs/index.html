@@ -467,6 +467,10 @@ footer .mono{font-size:11px;}
       document.getElementById("marketStatsGrid").innerHTML=cells.map(function(c){
         return '<div class="market-stat-cell"><div class="lbl">'+esc(c[0])+'</div><div class="val tab-nums">'+esc(c[1])+'</div></div>';
       }).join("");
+    } else {
+      // IDX's own index-summary (the only source for these All-Market totals) was down this
+      // run - said so honestly instead of silently leaving a stale figure from an earlier load.
+      document.getElementById("marketStatsGrid").innerHTML='<p class="empty-note">Statistik All Market tidak tersedia hari ini (sumber data IDX sedang gangguan).</p>';
     }
     // Show only the top 9 sectors (already sorted best-to-worst by the backend); roll
     // everything from the 10th sector onward into one "Lainnya" (Other) row, averaged.
@@ -532,9 +536,17 @@ footer .mono{font-size:11px;}
     document.getElementById("newsList").innerHTML=rows.join("")||'<li class="empty-note">Tidak ada berita baru.</li>';
   }
   function renderBroker(d){
-    var bf=d.broker_flow, totalEl=document.getElementById("netForeignTotal"), up=bf.net_foreign_total>=0;
-    totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total)); totalEl.style.color=up?"var(--good)":"var(--critical)";
-    function list(items,positive){ return items.map(function(it,i){ return '<li class="rank-row"><span class="rank-idx">'+(i+1)+'</span><span class="rank-ticker">'+esc(it.ticker)+'</span><span class="rank-val tab-nums '+(positive?"up":"down")+'">'+(positive?"+":"-")+"Rp"+fmtRp(Math.abs(it.net_value))+'</span></li>'; }).join(""); }
+    var bf=d.broker_flow, totalEl=document.getElementById("netForeignTotal");
+    if (bf.foreign_flow_available===false || bf.net_foreign_total==null){
+      totalEl.textContent="Data tidak tersedia"; totalEl.style.color="var(--text-muted)";
+    } else {
+      var up=bf.net_foreign_total>=0;
+      totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total)); totalEl.style.color=up?"var(--good)":"var(--critical)";
+    }
+    function list(items,positive){
+      if (!items||!items.length) return '<li class="empty-note">Data foreign-flow IDX tidak tersedia hari ini.</li>';
+      return items.map(function(it,i){ return '<li class="rank-row"><span class="rank-idx">'+(i+1)+'</span><span class="rank-ticker">'+esc(it.ticker)+'</span><span class="rank-val tab-nums '+(positive?"up":"down")+'">'+(positive?"+":"-")+"Rp"+fmtRp(Math.abs(it.net_value))+'</span></li>'; }).join("");
+    }
     document.getElementById("netBuyList").innerHTML=list(bf.top_net_buy,true);
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
     var ab=bf.active_brokers;

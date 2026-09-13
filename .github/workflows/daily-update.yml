@@ -25,8 +25,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run pipeline
-        run: node scripts/run-pipeline.mjs
+      - name: Run pipeline (retries if an upstream data provider is temporarily down)
+        run: |
+          max_attempts=6
+          wait_seconds=300
+          for attempt in $(seq 1 $max_attempts); do
+            echo "Pipeline attempt $attempt of $max_attempts..."
+            if node scripts/run-pipeline.mjs; then
+              echo "Pipeline succeeded on attempt $attempt."
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Attempt $attempt failed - waiting ${wait_seconds}s before retrying (likely a transient upstream outage, not a code bug)..."
+              sleep $wait_seconds
+            fi
+          done
+          echo "Pipeline failed after $max_attempts attempts (~30 min) - giving up for this run."
+          exit 1
         env:
           ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
