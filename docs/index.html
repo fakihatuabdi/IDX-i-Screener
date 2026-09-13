@@ -155,13 +155,23 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .market-stat-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px;}
 .market-stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .market-stat-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px; margin-top:3px;}
-.winrate-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:16px;}
+.winrate-strip{display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr; gap:10px; margin-bottom:16px;}
+@media (max-width:640px){.winrate-strip{grid-template-columns:1fr 1fr;}}
 .winrate-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px; border-left:3px solid var(--good);}
 .winrate-cell.na{border-left-color:var(--border);}
 .winrate-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .winrate-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:17px; margin-top:3px; color:var(--good);}
 .winrate-cell.na .val{font-size:12px; font-weight:600; color:var(--text-muted); font-family:"IBM Plex Sans",sans-serif;}
 .winrate-cell .sub{font-size:10px; color:var(--text-muted); margin-top:2px;}
+/* Overall win rate is the headline trust metric shown to users - given real hero treatment
+   (bigger number, gradient card, badge label) instead of blending in with the per-strategy
+   breakdown cells. */
+.winrate-cell.hero{background:linear-gradient(135deg,var(--good-soft),var(--surface-2) 70%); border:1.5px solid var(--good); border-left-width:1.5px; box-shadow:0 2px 12px rgba(22,163,74,0.18); padding:14px 16px;}
+.winrate-cell.hero .lbl{color:var(--good); font-size:11.5px; font-weight:800; display:flex; align-items:center; gap:5px;}
+.winrate-cell.hero .val{font-size:38px; line-height:1; margin-top:6px; color:var(--good);}
+.winrate-cell.hero.na{background:var(--surface-2); border-color:var(--border); box-shadow:none;}
+.winrate-cell.hero.na .lbl{color:var(--text-muted);}
+.winrate-cell.hero .sub{color:var(--text-1); font-weight:600; margin-top:4px;}
 .pick-cell{background:var(--surface-2); border-radius:8px; padding:12px 14px;}
 .pick-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
 .pick-cell .ticker-line{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px;}
@@ -181,6 +191,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .price-cell .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .price-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; margin-top:2px;}
 .price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
+.pct-gain{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--good); background:var(--good-soft); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .catalyst{font-size:12.5px; color:var(--text-2); text-align:justify; text-justify:inter-word;} .catalyst b{color:var(--text-1);}
 .source-tag{font-size:10.5px; color:var(--text-muted); text-align:left;}
 .tech-line{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--text-2); background:var(--surface); padding:6px 8px; border-radius:5px;}
@@ -554,9 +565,15 @@ footer .mono{font-size:11px;}
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Potensi ~'+s.potential_pct+'%</span>' : "";
+    // Real potential gain: the actual % distance from entry to target (both already real,
+    // strategy-specific prices) - only shown for Buy/Strong Buy, where "gain" is the right
+    // word (a Sell's target is a downside level, not a gain).
+    var isBuyCall = s.verdict && s.verdict.indexOf("Buy")!==-1;
+    var gainPct = (isBuyCall && s.entry) ? Math.round((s.target-s.entry)/s.entry*1000)/10 : null;
+    var gainPctHtml = gainPct!=null ? '<div class="pct-gain">+'+gainPct+'%</div>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
-      + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div></div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
+      + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div>'+gainPctHtml+'</div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'
       + '<div class="catalyst"><b>Catalyst:</b> '+esc(s.catalyst)+'<br><span class="source-tag">Sumber: '+esc(s.source)+'</span></div>'
       + renderFundamentals(s.fundamentals)
@@ -590,17 +607,19 @@ footer .mono{font-size:11px;}
     var wr=d.win_rate, el=document.getElementById("winrateStrip");
     if (!wr){ el.innerHTML=""; return; }
     var rows=[
-      ["Win Rate Keseluruhan", wr.overall],
-      ["Scalping", wr.scalping],
-      ["Swing", wr.swing],
-      ["Investment", wr.investment]
+      ["Win Rate Keseluruhan", wr.overall, true],
+      ["Scalping", wr.scalping, false],
+      ["Swing", wr.swing, false],
+      ["Investment", wr.investment, false]
     ];
     el.innerHTML=rows.map(function(r){
-      var stat=r[1];
+      var stat=r[1], isHero=r[2], heroCls=isHero?" hero":"";
+      var label=(isHero?"&#11088; ":"")+esc(r[0]);
       if (!stat || stat.total===0){
-        return '<div class="winrate-cell na"><div class="lbl">'+esc(r[0])+'</div><div class="val">Belum ada data</div></div>';
+        return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val">Belum ada data</div></div>';
       }
-      return '<div class="winrate-cell"><div class="lbl">'+esc(r[0])+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
+      var subExtra=isHero?" &middot; dihitung dari harga riil, bukan estimasi":"";
+      return '<div class="winrate-cell'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat'+subExtra+'</div></div>';
     }).join("");
   }
   // Friday's run: no new recommendations, a recap of the real (already-verified) results
@@ -613,11 +632,12 @@ footer .mono{font-size:11px;}
     document.getElementById("weeklySummarySub").textContent=ws.week_label||"";
     document.getElementById("weeklyHeadline").textContent=ws.headline||"—";
     document.getElementById("weeklyRecap").textContent=ws.recap||"";
-    var rows=[["Win Rate Minggu Ini",ws.stats.overall],["Scalping",ws.stats.scalping],["Swing",ws.stats.swing],["Investment",ws.stats.investment]];
+    var rows=[["Win Rate Minggu Ini",ws.stats.overall,true],["Scalping",ws.stats.scalping,false],["Swing",ws.stats.swing,false],["Investment",ws.stats.investment,false]];
     document.getElementById("weeklyStatsGrid").innerHTML=rows.map(function(r){
-      var stat=r[1];
-      if (!stat||stat.total===0) return '<div class="winrate-cell na"><div class="lbl">'+esc(r[0])+'</div><div class="val">Belum ada data</div></div>';
-      return '<div class="winrate-cell"><div class="lbl">'+esc(r[0])+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
+      var stat=r[1], isHero=r[2], heroCls=isHero?" hero":"";
+      var label=(isHero?"&#11088; ":"")+esc(r[0]);
+      if (!stat||stat.total===0) return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val">Belum ada data</div></div>';
+      return '<div class="winrate-cell'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
     }).join("");
     function pickCell(label,pick){
       if (!pick) return '<div class="pick-cell"><div class="lbl">'+esc(label)+'</div><div class="meta">Belum ada data</div></div>';
