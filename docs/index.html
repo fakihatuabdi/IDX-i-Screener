@@ -152,6 +152,17 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .mini-chart-wrap{background:#131722; border-radius:6px; padding:4px; overflow:hidden;} .mini-chart-wrap svg{display:block; width:100%; height:auto;}
 #ihsgChartWrap{margin:16px 0;} #ihsgChartWrap .mini-chart-wrap{padding:10px;}
 .market-stats-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px;}
+.gauge-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px;}
+.gauge-card{background:var(--surface-2); border-radius:10px; padding:16px; text-align:center;}
+.gauge-card .gauge-label{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:700; margin-bottom:6px;}
+.gauge-card svg{width:100%; height:auto; max-width:220px;}
+.gauge-score{font-family:"IBM Plex Mono",monospace; font-weight:800; font-size:30px; margin-top:-8px;}
+.gauge-rating{font-size:13px; font-weight:700; text-transform:capitalize; margin-top:2px;}
+.gauge-rating.extreme-fear,.gauge-rating.fear{color:var(--critical);}
+.gauge-rating.neutral{color:var(--warning);}
+.gauge-rating.greed,.gauge-rating.extreme-greed{color:var(--good);}
+.gauge-asof{font-size:10.5px; color:var(--text-muted); margin-top:4px;}
+.gauge-na{color:var(--text-muted); font-size:12.5px; font-style:italic; padding:20px 0;}
 .market-stat-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px;}
 .market-stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .market-stat-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px; margin-top:3px;}
@@ -244,6 +255,11 @@ footer .mono{font-size:11px;}
     <div id="ihsgChartWrap"></div>
     <div class="market-stats-grid" id="marketStatsGrid"></div>
     <div class="sector-grid" id="sectorGrid"></div>
+  </section>
+
+  <section class="panel info" id="panelSentiment">
+    <div class="panel-head"><div><div class="eyebrow">Sentimen Pasar Global</div><h2>Fear &amp; Greed Index</h2><div class="panel-sub">Data eksternal (bukan spesifik IHSG) - referensi mood pasar dunia</div></div></div>
+    <div class="gauge-grid" id="gaugeGrid"></div>
   </section>
 
   <section class="panel info" id="panelTechNews">
@@ -466,6 +482,45 @@ footer .mono{font-size:11px;}
       return '<div class="sector-row"><span class="sector-name">'+esc(s.name)+'</span><div class="sector-bar-track"><span class="sector-center"></span><span class="sector-bar-fill '+(up?"up":"down")+'" style="width:'+pct+'%"></span></div><span class="sector-val tab-nums '+(up?"up":"down")+'">'+fmtSigned(s.change_pct,"%",true)+'</span></div>';
     }).join("");
   }
+  // Speedometer-style gauge (semicircle, 0-100), same clock-angle convention used by most
+  // gauge tutorials: 0deg = straight up, -90deg = full left (score 0), +90deg = full right
+  // (score 100) - keeping bands and needle on one shared formula avoids a mirrored/backwards
+  // needle.
+  function polarToCartesian(cx,cy,r,angleDeg){
+    var rad=(angleDeg-90)*Math.PI/180;
+    return { x: cx+r*Math.cos(rad), y: cy+r*Math.sin(rad) };
+  }
+  function scoreToAngle(score){ return -90+(Math.max(0,Math.min(100,score))/100)*180; }
+  function describeArc(cx,cy,r,startScore,endScore){
+    var startAngle=scoreToAngle(startScore), endAngle=scoreToAngle(endScore);
+    var p1=polarToCartesian(cx,cy,r,startAngle), p2=polarToCartesian(cx,cy,r,endAngle);
+    var largeArc=(endAngle-startAngle)>180?1:0;
+    return 'M '+p1.x+' '+p1.y+' A '+r+' '+r+' 0 '+largeArc+' 1 '+p2.x+' '+p2.y;
+  }
+  function renderGaugeSvg(score){
+    var cx=100,cy=100,r=80;
+    var bands=[[0,25,"#dc3545"],[25,45,"#f0883e"],[45,55,"#eab308"],[55,75,"#84cc16"],[75,100,"#16a34a"]];
+    var arcs=bands.map(function(b){ return '<path d="'+describeArc(cx,cy,r,b[0],b[1])+'" fill="none" stroke="'+b[2]+'" stroke-width="16" stroke-linecap="butt"/>'; }).join("");
+    var angle=scoreToAngle(score==null?50:score);
+    var tip=polarToCartesian(cx,cy,66,angle);
+    var needle=score==null?"":'<g class="gauge-needle"><line x1="'+cx+'" y1="'+cy+'" x2="'+tip.x+'" y2="'+tip.y+'" style="stroke:var(--text-1)" stroke-width="3" stroke-linecap="round"/><circle cx="'+cx+'" cy="'+cy+'" r="7" style="fill:var(--text-1)"/></g>';
+    return '<svg viewBox="0 0 200 110">'+arcs+needle+'</svg>';
+  }
+  function gaugeCard(label,sentiment){
+    if (!sentiment || sentiment.score==null) return '<div class="gauge-card"><div class="gauge-label">'+esc(label)+'</div><div class="gauge-na">Data tidak tersedia</div></div>';
+    var ratingCls=sentiment.rating?sentiment.rating.toLowerCase().replace(/\s+/g,"-"):"";
+    return '<div class="gauge-card"><div class="gauge-label">'+esc(label)+'</div>'+renderGaugeSvg(sentiment.score)
+      + '<div class="gauge-score tab-nums">'+Math.round(sentiment.score)+'</div>'
+      + '<div class="gauge-rating '+ratingCls+'">'+esc(sentiment.rating||"—")+'</div>'
+      + (sentiment.as_of?'<div class="gauge-asof">Per '+esc(sentiment.as_of)+'</div>':"")
+      + '</div>';
+  }
+  function renderSentiment(d){
+    var ms=d.market_sentiment;
+    document.getElementById("gaugeGrid").innerHTML=
+      gaugeCard("Saham AS", ms?ms.us_stocks:null) +
+      gaugeCard("Crypto (Global)", ms?ms.crypto:null);
+  }
   function renderTechNews(d){
     document.getElementById("techOverview").textContent=d.tech_news.technical_overview||"—";
     var rows=[];
@@ -563,7 +618,7 @@ footer .mono{font-size:11px;}
     if (ma.crossLabel) badges.push('<span class="indicator-chip '+(ma.crossLabel.bullish?"cross-bull":"cross-bear")+'">'+esc(ma.crossLabel.text)+'</span>');
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
-    var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Potensi ~'+s.potential_pct+'%</span>' : "";
+    var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Success Rate ~'+s.potential_pct+'%</span>' : "";
     // Real potential gain: the actual % distance from entry to target (both already real,
     // strategy-specific prices) - only shown for Buy/Strong Buy, where "gain" is the right
     // word (a Sell's target is a downside level, not a gain).
@@ -656,7 +711,7 @@ footer .mono{font-size:11px;}
   }
   function render(){
     var d=state.data; if (!d) return;
-    renderHeader(d); renderSummary(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWinRate(d); renderWeeklySummary(d); renderWatch(d); renderBriefing(d);
+    renderHeader(d); renderSummary(d); renderSentiment(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWinRate(d); renderWeeklySummary(d); renderWatch(d); renderBriefing(d);
     computeStatus();
   }
 
