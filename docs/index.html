@@ -312,7 +312,7 @@ footer .mono{font-size:11px;}
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
     var mLeft=4, mRight=44, mTop=10, mBottomLabels=13, mBottomCaption=11;
     var mBottom=mBottomLabels+mBottomCaption;
-    var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.13) : 0, volGap=hasVolume?5:0;
+    var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.08) : 0, volGap=hasVolume?4:0;
     var priceH=h-mTop-mBottom-volH-volGap;
     var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(1.5,slot*0.32);
     var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlays.map(function(o){return o.value;}));
