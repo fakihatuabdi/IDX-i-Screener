@@ -48,11 +48,13 @@ Anda bisa lihat riwayat semua run (otomatis maupun manual) di tab **Actions** ka
 
 ## Kuota API (Zapi Pro)
 
-Sekali jalan (baik otomatis maupun manual), pipeline memakai:
-- Screener 300 saham + foreign-flow 4 halaman (800 baris) + chart intraday IHSG.
-- Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 210 hari, chart intraday per jam, rating teknikal TradingView, dan data fundamental.
-- Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 40 saham paling aktif hari itu (40 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa dan corporate action untuk 10 saham Buy.
-- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 + 40 + 1 + 10 = ~418 call/hari kalau dijalankan sekali sehari — masih jauh di bawah kuota bulanan Pro (~11.000+ call/bulan kalau jalan tiap hari bursa).
+Kuota akun (dicek langsung dari header response API): **2.000 call/menit**, **25.000 call/bulan**.
+
+Sekali jalan (baik otomatis maupun manual), pipeline memakai sekitar:
+- Screener 300 saham (1 call) + foreign-flow 4 halaman (4 call) + chart harian IHSG 6 bulan (1 call) + index summary (1 call).
+- Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 260 hari, rating teknikal TradingView, dan data fundamental (20 x 3 = 60 call).
+- Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 250 saham paling aktif hari itu (250 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa (1 call) dan corporate action untuk 10 saham Buy (10 call).
+- Total sekitar 1 + 4 + 1 + 1 + 60 + 1 + 250 + 1 + 10 = ~329 call/run. Dijalankan ~26x/bulan (tiap hari kecuali Sabtu) = ~8.550 call/bulan — masih menyisakan ruang besar dari kuota 25.000/bulan untuk manual re-run atau retry.
 
 ## Win rate
 
