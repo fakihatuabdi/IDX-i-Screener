@@ -52,9 +52,15 @@ Kuota akun (dicek langsung dari header response API): **2.000 call/menit**, **25
 
 Sekali jalan (baik otomatis maupun manual), pipeline memakai sekitar:
 - Screener 300 saham (1 call) + foreign-flow 4 halaman (4 call) + chart harian IHSG 6 bulan (1 call) + index summary (1 call).
-- Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 300 hari, rating teknikal TradingView, dan data fundamental (20 x 3 = 60 call).
-- Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 250 saham paling aktif hari itu (250 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa (1 call) dan corporate action untuk 10 saham Buy (10 call).
-- Total sekitar 1 + 4 + 1 + 1 + 60 + 1 + 250 + 1 + 10 = ~329 call/run. Dijalankan ~26x/bulan (tiap hari kecuali Sabtu) = ~8.550 call/bulan — masih menyisakan ruang besar dari kuota 25.000/bulan untuk manual re-run atau retry.
+- Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 300 hari, rating teknikal TradingView, data fundamental, dan broker summary per-saham dari Pluang untuk konsentrasi top-3 buyer (20 x 4 = 80 call).
+- Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 250 saham paling aktif hari itu (250 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa (1 call), corporate action untuk 10 saham Buy (10 call), dan Fear & Greed Index saham AS + crypto (2 call).
+- Total sekitar 1 + 4 + 1 + 1 + 80 + 1 + 250 + 1 + 10 + 2 = ~351 call/run. Dijalankan ~26x/bulan (tiap hari kecuali Sabtu) = ~9.130 call/bulan — masih menyisakan ruang besar dari kuota 25.000/bulan untuk manual re-run atau retry.
+
+## Metodologi analisis per strategi
+
+Verdict Scalping/Swing/Investment mengikuti kerangka referensi "Kerangka Analisis Saham: Scalping, Swing, dan Investasi" (13 Sep 2026) - skor konfluensi (hitung berapa sinyal riil independen yang searah, bukan 1 indikator saja), sisi bullish & bearish dihitung terpisah supaya sinyal yang benar-benar bertentangan jatuh ke Hold, dan fundamental 100% dikeluarkan dari skor Scalping/Swing tapi jadi faktor terbesar di Investment. Yang sudah diimplementasikan dengan data real: EMA9/21 (Scalping) & SMA20/50 (Swing) cross, RSI(7)/RSI(14) sesuai gaya, RVOL&ge;2x sebagai syarat validitas breakout, MACD (periode beda per gaya), ADX/+DI/-DI (Wilder, dihitung sendiri dari OHLC), OBV untuk konfirmasi volume, konsentrasi top-3 broker pembeli dari Pluang (>=60% = akumulasi kuat), RSI & ADX mingguan khusus Investment, dan rating TradingView + rasio fundamental (ROE/PBV/DER/dividend yield). "Success Rate %" di tiap kartu dihitung langsung dari skor konfluensi yang sama (bukan angka terpisah), diskalakan ke 50-90%.
+
+Beberapa faktor di dokumen referensi **sengaja tidak diimplementasikan** karena tidak ada sumber data real yang tersedia lewat Zapi: tren kepemilikan asing/institusi KSEI per kuartal (dipakai proxy kasar dari konsentrasi broker harian, bukan data KSEI asli), analisis makro/sektor top-down, penilaian kualitatif moat/manajemen/tata kelola, dan valuasi intrinsik (DCF). Tidak pernah dikarang - kalau datanya tidak ada, faktornya cuma dilewati.
 
 ## Win rate
 

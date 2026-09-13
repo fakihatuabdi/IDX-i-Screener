@@ -333,9 +333,9 @@ footer .mono{font-size:11px;}
 
   var state = { data:null, strategy:"swing", online:null };
   var STRATEGY_NOTES = {
-    scalping:"Intraday, 1 hari. Fokus: RVOL, EMA13/21, RSI(5), breakout support/resistance.",
-    swing:"Beberapa hari - minggu. Fokus: SMA20/50, RSI(14), pola Higher-High/Higher-Low, verdict teknikal.",
-    investment:"Bulan - tahun. Fokus: SMA50/SMA200, verdict teknikal Buy/Strong Buy."
+    scalping:"Intraday, 1 hari. Fokus: RVOL&ge;2x, EMA9/21, RSI(7), ADX/MACD/OBV, broker top-3, breakout support/resistance.",
+    swing:"Beberapa hari - minggu. Fokus: SMA20/50, RSI(14), ADX/MACD, broker top-3, pola Higher-High/Higher-Low.",
+    investment:"Bulan - tahun. Fokus: SMA50/SMA200, RSI/ADX mingguan, rating TradingView, fundamental."
   };
 
   function fmtAxisDate(iso){
@@ -579,7 +579,7 @@ footer .mono{font-size:11px;}
       + '</div></details>';
   }
   // Which MA/EMA pair is analytically relevant depends on the active strategy - Scalping
-  // trades the fast EMA13/21 crossover, Swing trades MA20/50, Investment trades the
+  // trades the fast EMA9/21 crossover, Swing trades MA20/50, Investment trades the
   // classic SMA50/200 golden/death cross. Lines are real values already computed by the
   // backend (never estimated here); drawn on the chart plus a plain-language cross badge.
   function lastValid(arr){
@@ -590,7 +590,7 @@ footer .mono{font-size:11px;}
   function maOverlaysFor(s){
     var ml=s.ma_lines; if (!ml) return { overlays:[], crossLabel:null };
     var pairs={
-      scalping:[["EMA13",ml.ema13,"#60a5fa"],["EMA21",ml.ema21,"#f59e0b"]],
+      scalping:[["EMA9",ml.ema9,"#60a5fa"],["EMA21",ml.ema21,"#f59e0b"]],
       swing:[["MA20",ml.sma20,"#60a5fa"],["MA50",ml.sma50,"#f59e0b"]],
       investment:[["MA50",ml.sma50,"#60a5fa"],["MA200",ml.sma200,"#f59e0b"]]
     };
