@@ -304,15 +304,15 @@ footer .mono{font-size:11px;}
   }
   // TradingView-style dark daily candle chart (~1 bulan perdagangan terakhir, refresh
   // tiap hari): black background, green/red candles, gridlines with price labels on the
-  // Y-axis and date labels on the X-axis. Volume bars use a distinct neutral color so
-  // they're never mistaken for price direction.
+  // Y-axis and date labels on the X-axis. Volume bars are colored by that day's direction
+  // too, but in a different hue family (cyan/amber) so they're never confused with candles.
   function renderCandles(candles,w,h,overlays){
     if(!candles||!candles.length) return "";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
     var mLeft=4, mRight=44, mTop=10, mBottomLabels=13, mBottomCaption=11;
     var mBottom=mBottomLabels+mBottomCaption;
-    var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.2) : 0, volGap=hasVolume?6:0;
+    var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.13) : 0, volGap=hasVolume?5:0;
     var priceH=h-mTop-mBottom-volH-volGap;
     var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(1.5,slot*0.32);
     var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlays.map(function(o){return o.value;}));
@@ -329,15 +329,16 @@ footer .mono{font-size:11px;}
     }
     yLabels+='<text x="'+(w-mRight+6)+'" y="'+(mTop-2)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Rp</text>';
 
-    // Volume sub-panel: a single neutral color (not red/green like the candles) so it
-    // never gets confused with price direction - just "how much traded that day".
+    // Volume sub-panel: still colored by that day's direction (up/down), but in a
+    // completely different hue family (cyan/amber) from the candles (green/red) so the
+    // two never get visually confused, while still showing "buy day vs sell day" volume.
     var volY0=mTop+priceH+volGap, volMax=hasVolume?Math.max.apply(null,candles.map(function(c){return c.v||0;})):1;
     var volBars="";
     if (hasVolume){
       volBars=candles.map(function(c,i){
-        var xx=x(i);
+        var xx=x(i), up=c.c>=c.o, color=up?"#22d3ee":"#fb923c";
         var bh=Math.max(1,(c.v||0)/volMax*volH);
-        return '<rect x="'+(xx-bodyW/2)+'" y="'+(volY0+volH-bh)+'" width="'+bodyW+'" height="'+bh+'" fill="#7c8fd6" opacity="0.65"/>';
+        return '<rect x="'+(xx-bodyW/2)+'" y="'+(volY0+volH-bh)+'" width="'+bodyW+'" height="'+bh+'" fill="'+color+'" opacity="0.8"/>';
       }).join("");
       volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+7)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Vol</text>';
     }
