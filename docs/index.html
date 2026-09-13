@@ -94,13 +94,25 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .bandar-col-lbl::before{content:""; width:4px; height:12px; border-radius:2px; background:var(--accent);}
 .broker-table-wrap{overflow-x:auto;}
 .broker-table{width:100%; border-collapse:collapse; font-size:12.5px;}
-.broker-table th{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap;}
+.broker-table th{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); font-weight:700; padding:8px; border-bottom:2px solid var(--accent-soft); white-space:nowrap;}
 .broker-table th:first-child{text-align:left;}
-.broker-table td{text-align:right; padding:7px 8px; border-bottom:1px solid var(--gridline); white-space:nowrap;}
+.broker-table td{text-align:right; padding:8px; border-bottom:1px solid var(--gridline); white-space:nowrap;}
 .broker-table td:first-child{text-align:left;}
 .broker-table tbody tr:last-child td{border-bottom:none;}
+.broker-table tbody tr:nth-child(even){background:rgba(127,127,127,0.05);}
+.broker-table tbody tr:hover{background:var(--accent-soft);}
+.broker-table tbody tr.broker-top{background:var(--good-soft);}
+.broker-table tbody tr.broker-top:hover{background:var(--good-soft);}
+.broker-id-cell{display:flex; align-items:center; gap:8px;}
+.broker-rank-badge{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:800; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--accent-soft); color:var(--accent);}
+.broker-top .broker-rank-badge{background:var(--good); color:var(--bg);}
 .broker-code{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--accent);}
 .broker-name{color:var(--text-2); font-size:11.5px;}
+.broker-value-cell{display:flex; flex-direction:column; align-items:flex-end; gap:3px;}
+.broker-value-bar{display:block; width:64px; height:4px; border-radius:2px; background:var(--gridline); overflow:hidden;}
+.broker-value-bar span{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--good)); border-radius:2px;}
+.broker-top-pick{display:inline-flex; align-items:baseline; gap:5px; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:20px; background:var(--good-soft); color:var(--good); white-space:nowrap;}
+.broker-pick-ticker{font-family:"IBM Plex Mono",monospace; font-weight:800; letter-spacing:0.02em;}
 .news-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .news-item{background:var(--surface-2); border-radius:7px; padding:10px 12px; border-left:3px solid var(--accent);}
 .news-item.type-corp{border-left-color:var(--warning);}
@@ -238,7 +250,7 @@ footer .mono{font-size:11px;}
     <div class="bandar-box" id="bandarBox">
       <div class="head"><span class="bandar-col-lbl" style="margin:0;">Broker Paling Aktif</span><span class="bandar-ticker-tag" id="bandarTicker">&mdash;</span></div>
       <div class="broker-table-wrap"><table class="broker-table">
-        <thead><tr><th>Broker</th><th>Volume</th><th>Value</th><th>Frekuensi</th><th>Avg Price</th></tr></thead>
+        <thead><tr><th>Broker</th><th>Volume</th><th>Value</th><th>Frekuensi</th><th>Top Pick</th></tr></thead>
         <tbody id="activeBrokerRows"></tbody>
       </table></div>
     </div>
@@ -345,9 +357,10 @@ footer .mono{font-size:11px;}
       volBars+='<text x="'+(w-mRight+6)+'" y="'+(volY0+7)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace">Vol</text>';
     }
 
-    // ~20-22 daily bars (about a month) - sample a handful of evenly-spaced date labels.
+    // Sample evenly-spaced date labels roughly every 3 bars, so a dense 1-month daily chart
+    // still reads its dates clearly without a label on every single bar.
     var xLabelY=mTop+priceH+(hasVolume?volGap+volH:0)+12;
-    var xLabelCount=Math.min(6,n), xLabels="";
+    var xLabelCount=Math.min(Math.max(2,Math.ceil(n/3)),8), xLabels="";
     for (var k=0;k<xLabelCount;k++){
       var idx=Math.round(k*(n-1)/(xLabelCount-1||1)), lx=x(idx);
       var dateStr=fmtAxisDate(candles[idx].t);
@@ -455,13 +468,17 @@ footer .mono{font-size:11px;}
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
     var ab=bf.active_brokers;
     if (ab && ab.top10 && ab.top10.length){
-      document.getElementById("bandarTicker").textContent=ab.ticker+(ab.date?" · "+ab.date:"");
-      document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b){
-        return '<tr><td><span class="broker-code">'+esc(b.broker)+'</span> <span class="broker-name">'+esc(b.name)+'</span></td>'
+      var tickerLabel=(ab.tickers&&ab.tickers.length?ab.tickers.join(", "):"—")+(ab.date?" · "+ab.date:"");
+      document.getElementById("bandarTicker").textContent=tickerLabel;
+      var maxValue=Math.max.apply(null,ab.top10.map(function(b){return b.value;}));
+      document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b,i){
+        var barPct=maxValue?Math.round(b.value/maxValue*100):0;
+        return '<tr class="'+(i===0?"broker-top":"")+'">'
+          + '<td><div class="broker-id-cell"><span class="broker-rank-badge">'+(i+1)+'</span><div><span class="broker-code">'+esc(b.broker)+'</span><br><span class="broker-name">'+esc(b.name)+'</span></div></div></td>'
           + '<td class="tab-nums">'+IDR.format(b.volume)+'</td>'
-          + '<td class="tab-nums">Rp'+fmtRp(b.value)+'</td>'
+          + '<td class="tab-nums"><div class="broker-value-cell"><span>Rp'+fmtRp(b.value)+'</span><span class="broker-value-bar"><span style="width:'+barPct+'%"></span></span></div></td>'
           + '<td class="tab-nums">'+IDR.format(b.frequency)+'</td>'
-          + '<td class="tab-nums">'+(b.avg_price!=null?IDR.format(b.avg_price):"&mdash;")+'</td></tr>';
+          + '<td>'+(b.top_pick_ticker?'<span class="broker-top-pick"><span class="broker-pick-ticker">'+esc(b.top_pick_ticker)+'</span>'+(b.top_pick_avg_price!=null?' @ Rp'+IDR.format(b.top_pick_avg_price):"")+'</span>':"&mdash;")+'</td></tr>';
       }).join("");
       document.getElementById("bandarBox").hidden=false;
     } else { document.getElementById("bandarBox").hidden=true; }
@@ -532,7 +549,7 @@ footer .mono{font-size:11px;}
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Potensi ~'+s.potential_pct+'%</span>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
-      + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Per 3 Hari (1 Bulan)")
+      + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
       + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div></div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'
       + '<div class="catalyst"><b>Catalyst:</b> '+esc(s.catalyst)+'<br><span class="source-tag">Sumber: '+esc(s.source)+'</span></div>'
