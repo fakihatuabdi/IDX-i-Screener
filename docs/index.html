@@ -306,8 +306,9 @@ footer .mono{font-size:11px;}
   // tiap hari): black background, green/red candles, gridlines with price labels on the
   // Y-axis and date labels on the X-axis. Volume bars are colored by that day's direction
   // too, but in a different hue family (cyan/amber) so they're never confused with candles.
-  function renderCandles(candles,w,h,overlays){
+  function renderCandles(candles,w,h,overlays,caption){
     if(!candles||!candles.length) return "";
+    caption=caption||"Harian";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.series&&o.series.length;});
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
     var mLeft=4, mRight=44, mTop=10, mBottomLabels=13, mBottomCaption=11;
@@ -352,7 +353,7 @@ footer .mono{font-size:11px;}
       var dateStr=fmtAxisDate(candles[idx].t);
       if (dateStr) xLabels+='<text x="'+lx+'" y="'+xLabelY+'" fill="#9199ad" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(dateStr)+'</text>';
     }
-    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle">Harian</text>';
+    var xCaption='<text x="'+(mLeft+(w-mLeft-mRight)/2)+'" y="'+(h-4)+'" fill="#6b7280" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle">'+esc(caption)+'</text>';
 
     var bars=candles.map(function(c,i){
       var xx=x(i), up=c.c>=c.o, color=up?"#22c55e":"#ef4444";
@@ -485,7 +486,8 @@ footer .mono{font-size:11px;}
       ["ROE", fmtPct1(f.roe)]
     ].filter(function(r){ return r[1]!=null; });
     if (!rows.length) return '<details class="fund"><summary>Fundamental</summary><p class="fund-na">Data fundamental tidak tersedia untuk saham ini.</p></details>';
-    return '<details class="fund"><summary>Fundamental (info latar belakang, bukan dasar screening)</summary><div class="fund-grid">'
+    var fundLabel = state.strategy==="investment" ? "Fundamental (salah satu dasar screening Investment)" : "Fundamental (info latar belakang, bukan dasar screening)";
+    return '<details class="fund"><summary>'+fundLabel+'</summary><div class="fund-grid">'
       + rows.map(function(r){ return '<div class="fund-cell"><span class="k">'+esc(r[0])+'</span><span class="v tab-nums">'+esc(r[1])+'</span></div>'; }).join("")
       + '</div></details>';
   }
@@ -530,7 +532,7 @@ footer .mono{font-size:11px;}
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Potensi ~'+s.potential_pct+'%</span>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
-      + badgeRow + renderCandles(s.candles,320,230,ma.overlays)
+      + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Per 3 Hari (1 Bulan)")
       + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div></div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'
       + '<div class="catalyst"><b>Catalyst:</b> '+esc(s.catalyst)+'<br><span class="source-tag">Sumber: '+esc(s.source)+'</span></div>'
