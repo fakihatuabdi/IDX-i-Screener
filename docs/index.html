@@ -308,14 +308,15 @@ footer .mono{font-size:11px;}
   // too, but in a different hue family (cyan/amber) so they're never confused with candles.
   function renderCandles(candles,w,h,overlays){
     if(!candles||!candles.length) return "";
-    w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.value!=null;});
+    w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.series&&o.series.length;});
     var hasVolume=candles.some(function(c){return c.v!=null && c.v>0;});
     var mLeft=4, mRight=44, mTop=10, mBottomLabels=13, mBottomCaption=11;
     var mBottom=mBottomLabels+mBottomCaption;
     var volH=hasVolume ? Math.round((h-mTop-mBottom)*0.08) : 0, volGap=hasVolume?4:0;
     var priceH=h-mTop-mBottom-volH-volGap;
-    var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(1.5,slot*0.32);
-    var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlays.map(function(o){return o.value;}));
+    var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(2,slot*0.72);
+    var overlayVals=[]; overlays.forEach(function(o){ o.series.forEach(function(v){ if(v!=null) overlayVals.push(v); }); });
+    var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlayVals);
     var lo=Math.min.apply(null,priceVals), hi=Math.max.apply(null,priceVals);
     var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
     function y(v){ return mTop+priceH*(1-(v-lo)/range); }
@@ -359,11 +360,29 @@ footer .mono{font-size:11px;}
       return '<line x1="'+xx+'" y1="'+y(c.h)+'" x2="'+xx+'" y2="'+y(c.l)+'" stroke="'+color+'" stroke-width="1"/><rect x="'+(xx-bodyW/2)+'" y="'+bodyTop+'" width="'+bodyW+'" height="'+bodyH+'" fill="'+color+'"/>';
     }).join("");
 
-    // MA/EMA reference lines (real daily-timeframe values) - dashed, labeled at the right edge.
+    // MA/EMA lines: a real polyline through each day's actual value, so the line follows
+    // price shape over time instead of a flat mark - series may start with nulls (not enough
+    // history yet for e.g. SMA200), so split into separate path segments at any gap.
     var overlayLines=overlays.map(function(o){
-      var yy=y(o.value);
-      return '<line x1="'+mLeft+'" y1="'+yy+'" x2="'+(w-mRight)+'" y2="'+yy+'" stroke="'+o.color+'" stroke-width="1.25" stroke-dasharray="4,3"/>'
-        + '<text x="'+mLeft+'" y="'+(yy-2.5)+'" fill="'+o.color+'" font-size="7.5" font-weight="700" font-family="IBM Plex Mono, monospace">'+esc(o.label)+'</text>';
+      var segs=[], cur=[];
+      for (var i=0;i<n;i++){
+        var v=o.series[i];
+        if (v==null){ if (cur.length>1) segs.push(cur); cur=[]; continue; }
+        cur.push(x(i)+","+y(v));
+      }
+      if (cur.length>1) segs.push(cur);
+      var paths=segs.map(function(pts){
+        return '<polyline points="'+pts.join(" ")+'" fill="none" stroke="'+o.color+'" stroke-width="1.5"/>';
+      }).join("");
+      var lastIdx=-1;
+      for (var j=n-1;j>=0;j--){ if (o.series[j]!=null){ lastIdx=j; break; } }
+      var label="";
+      if (lastIdx>=0){
+        var ly=y(o.series[lastIdx]);
+        label='<circle cx="'+x(lastIdx)+'" cy="'+ly+'" r="2" fill="'+o.color+'"/>'
+          + '<text x="'+(w-mRight+6)+'" y="'+(ly+3)+'" fill="'+o.color+'" font-size="7.5" font-weight="700" font-family="IBM Plex Mono, monospace">'+esc(o.label)+'</text>';
+      }
+      return paths+label;
     }).join("");
 
     return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
@@ -474,6 +493,11 @@ footer .mono{font-size:11px;}
   // trades the fast EMA13/21 crossover, Swing trades MA20/50, Investment trades the
   // classic SMA50/200 golden/death cross. Lines are real values already computed by the
   // backend (never estimated here); drawn on the chart plus a plain-language cross badge.
+  function lastValid(arr){
+    if (!arr) return null;
+    for (var i=arr.length-1;i>=0;i--){ if (arr[i]!=null) return arr[i]; }
+    return null;
+  }
   function maOverlaysFor(s){
     var ml=s.ma_lines; if (!ml) return { overlays:[], crossLabel:null };
     var pairs={
@@ -482,10 +506,13 @@ footer .mono{font-size:11px;}
       investment:[["MA50",ml.sma50,"#60a5fa"],["MA200",ml.sma200,"#f59e0b"]]
     };
     var pair=pairs[state.strategy]||pairs.swing;
-    var overlays=pair.filter(function(p){return p[1]!=null;}).map(function(p){return {label:p[0],value:p[1],color:p[2]};});
+    // Each overlay carries its FULL series (aligned with the candles) so the chart can draw
+    // a real line that follows price shape over time, not a flat mark at today's value.
+    var overlays=pair.filter(function(p){return p[1]&&p[1].length;}).map(function(p){return {label:p[0],series:p[1],color:p[2]};});
     var crossLabel=null;
-    if (pair[0][1]!=null && pair[1][1]!=null){
-      var bullish=pair[0][1]>pair[1][1];
+    var v0=lastValid(pair[0][1]), v1=lastValid(pair[1][1]);
+    if (v0!=null && v1!=null){
+      var bullish=v0>v1;
       crossLabel=pair[0][0]+(bullish?" > ":" < ")+pair[1][0]+(bullish?" (Bullish)":" (Bearish)");
       crossLabel={ text:crossLabel, bullish:bullish };
     }
