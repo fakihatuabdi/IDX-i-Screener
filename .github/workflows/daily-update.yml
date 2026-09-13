@@ -25,34 +25,26 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run pipeline (retries until real IDX data recovers, or a wait budget runs out)
-        run: |
-          max_attempts=10
-          wait_seconds=300
-          for attempt in $(seq 1 $max_attempts); do
-            echo "Pipeline attempt $attempt of $max_attempts..."
-            if node scripts/run-pipeline.mjs; then
-              echo "Pipeline succeeded on attempt $attempt with real IDX data."
-              exit 0
-            fi
-            if [ "$attempt" -lt "$max_attempts" ]; then
-              echo "Attempt $attempt used fallback data (or failed outright) - waiting ${wait_seconds}s before retrying, in case the real source recovers..."
-              sleep $wait_seconds
-            fi
-          done
-          # Deliberately exit 0 even here: run-pipeline.mjs already wrote a valid dashboard
-          # (real if some attempt got it, an honest fallback otherwise) - the "Commit updated
-          # data" step below must still run so that output isn't stranded uncommitted. A
-          # step exiting non-zero would make GitHub Actions skip every step after it by
-          # default, which would silently throw away a perfectly good fallback run.
-          echo "Still on fallback data after $max_attempts attempts (~45 min) - committing the last attempt's (valid, honest) output as-is."
-          exit 0
+      - name: Run pipeline
+        # A single attempt: each real API call inside the pipeline already retries itself up
+        # to 3x with a short backoff (lib/pipeline.mjs withRetry), and IDX-sourced data
+        # (index-summary/foreign-flow/broker-summary) already falls back to a real Pluang-
+        # based substitute within this same run if the primary source is down - see
+        # lib/pipeline.mjs's data_health tracking. No long sleep-and-retry loop here anymore
+        # (that used to make a single run take up to ~45 minutes); ongoing recovery when
+        # BOTH primary and the fallback are down is instead handled by the separate hourly
+        # recovery-watchdog workflow, which only re-runs when needed. This step is allowed to
+        # exit non-zero (visible as a failed step) when the run finished in a degraded state
+        # - the "if: always()" on the next step guarantees the data still gets committed
+        # regardless.
+        run: node scripts/run-pipeline.mjs
         env:
           ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: claude-haiku-4-5-20251001
 
       - name: Commit updated data
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

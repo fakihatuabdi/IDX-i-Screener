@@ -198,26 +198,26 @@ async function main() {
   await writeFile(LATEST_PATH, JSON.stringify(output));
   await writeFile(TRACK_RECORD_PATH, JSON.stringify(trackRecord));
 
-  // IDX's own official data (index-summary / foreign-flow) was down and buildDashboard()
-  // fell back to real, honest substitutes (see lib/pipeline.mjs) rather than throwing - this
-  // run's output is valid and has already been written above, so it's never lost. But real
-  // official data is still better than a fallback, so this exits non-zero anyway: the
-  // workflow's retry loop (daily-update.yml) treats that as "not fully recovered yet" and
-  // tries again a few minutes later, re-running this whole script (which re-fetches
-  // everything fresh) - as soon as an attempt gets real data back, that attempt exits 0 and
-  // the loop stops there, so the dashboard ends up on real data again as soon as IDX
-  // recovers, without waiting for tomorrow's scheduled run. If every attempt in the retry
-  // window stays degraded, the last attempt's honest fallback output is what gets committed.
-  const isDegraded = dashboard.ihsg.market_stats == null || dashboard.broker_flow.net_value_source !== "idx";
+  // IDX's own official data (index-summary / foreign-flow / broker-summary) was down and
+  // buildDashboard() fell back to real, honest substitutes - see data_health in the output
+  // (lib/pipeline.mjs) - rather than throwing. This run's output is valid either way and has
+  // already been written above, so it's never lost. Real official data is still better than
+  // a fallback though, so a degraded run still exits non-zero here: not to retry within this
+  // same job (that used to cause a single run to take up to ~45 minutes - removed), but
+  // purely as an honest status signal - it shows this run as "failed" in the Actions log, and
+  // the separate hourly recovery-watchdog workflow checks this exact data_health flag on its
+  // own schedule to decide whether it's worth trying again, closing the loop without making
+  // any single run wait around for it.
+  const isDegraded = !dashboard.data_health.all_primary_ok;
   console.log(
     "Dashboard updated for",
     dashboard.meta.trading_date,
     "- win rate:", winRate.overall,
     "- friday recap:", isFridayRun,
-    "- degraded (IDX data unavailable, using fallback):", isDegraded
+    "- data_health:", JSON.stringify(dashboard.data_health)
   );
   if (isDegraded) {
-    console.error("Run used fallback data instead of real IDX data - exiting non-zero so the workflow retries for the real thing (output above is still valid and already saved).");
+    console.error("Run used fallback data instead of real IDX data for at least one source - output above is still valid and already saved; the hourly recovery-watchdog will keep trying to get real data back.");
     process.exitCode = 1;
   }
 }

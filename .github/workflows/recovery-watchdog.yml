@@ -1,0 +1,90 @@
+name: Recovery Watchdog
+
+# Closed-loop auto-recovery: every hour, check whether the last published dashboard used real
+# primary (IDX) data. If it did, there's nothing to do - skip immediately. If not, do a cheap
+# 1-call probe of the primary source before deciding whether to spend a full pipeline run
+# (~350 calls) on a recovery attempt - re-running the full pipeline every single hour during
+# a multi-hour or multi-day outage would burn through the monthly API quota in days, so this
+# only escalates to a full run when it's actually likely to help: the probe says primary has
+# come back (worth refreshing to get real data again), or the last run was fully failed
+# (worth trying to at least reach the Pluang-based fallback). If the last run is already
+# sitting on a working fallback and the probe says primary is still down, it skips - the cheap
+# probe alone is enough to know nothing has changed yet.
+on:
+  schedule:
+    - cron: "5 * * * *" # every hour at :05 (offset from the daily run's :00 to avoid overlap)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check whether the last published run is already healthy
+        id: check
+        run: |
+          STATE=$(node -e "
+            const fs = require('fs');
+            let state = 'unknown';
+            try {
+              const d = JSON.parse(fs.readFileSync('docs/data/latest.json', 'utf8'));
+              const h = d.data_health;
+              if (h && h.all_primary_ok) state = 'ok';
+              else if (h && (h.net_value_source === 'none' || h.active_brokers_source === 'none')) state = 'failed';
+              else if (h) state = 'degraded';
+            } catch (e) {}
+            console.log(state);
+          ")
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          echo "Current dashboard data_health state = $STATE"
+
+      - name: Cheap probe of the primary (IDX) source
+        id: probe
+        if: steps.check.outputs.state != 'ok'
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "x-api-key: ${ZAPI_KEY}" "https://api.zpi.web.id/v1/finance:idx/index-summary")
+          if [ "$STATUS" = "200" ]; then HEALTHY=true; else HEALTHY=false; fi
+          echo "primary_healthy=$HEALTHY" >> "$GITHUB_OUTPUT"
+          echo "Primary probe: HTTP $STATUS -> healthy=$HEALTHY"
+        env:
+          ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
+
+      - name: Decide whether a full recovery run is worth it
+        id: decide
+        if: steps.check.outputs.state != 'ok'
+        run: |
+          if [ "${{ steps.probe.outputs.primary_healthy }}" = "true" ] || [ "${{ steps.check.outputs.state }}" = "failed" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Primary still down and the last run already has a working fallback - skipping a full pipeline run this hour to save quota."
+          fi
+
+      - name: Install dependencies
+        if: steps.decide.outputs.run == 'true'
+        run: npm install
+
+      - name: Run pipeline (recovery attempt)
+        if: steps.decide.outputs.run == 'true'
+        run: node scripts/run-pipeline.mjs
+        env:
+          ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+
+      - name: Commit updated data
+        if: always() && steps.decide.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/latest.json docs/data/track-record.json
+          git diff --staged --quiet || git commit -m "Recovery watchdog update $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push

@@ -10,6 +10,18 @@ Dashboard watchlist IHSG yang update otomatis jam 19:00 WIB tiap hari kecuali Sa
 
 Prinsip yang tetap dipertahankan: data fundamental tidak pernah dipakai untuk screening/ranking Scalping & Swing (hanya latar belakang di kartu saham); Investment strategy secara eksplisit mempertimbangkan fundamental (PER/PBV/Dividend Yield/DER/ROE) untuk ranking & narasinya. Semua angka (harga, verdict, indikator) dihitung dari data asli — Claude API cuma menulis kalimat, tidak pernah mengarang angka. Kalau satu sumber data gagal/kena limit, kode skip sumber itu saja dan lanjut pakai data lain (tidak membatalkan seluruh update).
 
+## Ketahanan terhadap gangguan provider data (primary/secondary/watchdog)
+
+Endpoint IDX resmi (`finance:idx/index-summary`, `foreign-flow`, `broker-summary`) pernah down berjam-jam (real, bukan simulasi - terverifikasi lewat pengujian langsung). Desainnya berlapis:
+
+1. **Primary (IDX)** dicoba dulu, tiap call retry singkat maks 3x (`lib/pipeline.mjs` `withRetry`, jeda hitungan detik - bukan menit).
+2. Kalau primary gagal setelah itu, **fallback ke secondary (Pluang)** di run yang sama - tapi formulanya disesuaikan, bukan sekadar tempel data:
+   - Level IHSG: dari chart harian TradingView (Pluang sendiri tidak punya data index/composite - sudah dicek langsung ke 31 endpoint mereka, tidak ada).
+   - Ranking net asing: estimasi dari broker yang diklasifikasikan asing (`brokers?type=FOREIGN`) dikombinasikan dengan broker-summary per saham dari Pluang - bukan angka resmi yang identik, tapi real, bukan karangan.
+   - Broker paling aktif: agregat dari scan broker-summary Pluang yang sama.
+3. Kalau secondary **juga** gagal untuk suatu data, dashboard menampilkan banner jujur **"Data gagal dimuat"** (bukan diam-diam pakai data lama/kosong).
+4. **Recovery Watchdog** (`.github/workflows/recovery-watchdog.yml`) jalan tiap jam, closed-loop: cek status data terakhir (`data_health` di `latest.json`) → kalau sudah sehat, skip (hemat kuota); kalau tidak, probe murah (1 call) ke IDX → baru jalankan pipeline penuh kalau primary kelihatan sudah pulih ATAU status masih "gagal total". Begitu primary pulih, run berikutnya otomatis kembali pakai data resmi tanpa menunggu jadwal harian berikutnya.
+
 ## Setup — langkah demi langkah
 
 ### 1. Tambahkan secrets di GitHub

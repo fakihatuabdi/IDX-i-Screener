@@ -163,6 +163,11 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .gauge-rating.greed,.gauge-rating.extreme-greed{color:var(--good);}
 .gauge-asof{font-size:10.5px; color:var(--text-muted); margin-top:4px;}
 .gauge-na{color:var(--text-muted); font-size:12.5px; font-style:italic; padding:20px 0;}
+.data-health-banner{max-width:1280px; margin:0 auto; padding:10px 16px; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:8px;}
+.data-health-banner.warn{background:var(--warning-soft); color:var(--warning); border-bottom:1px solid var(--warning);}
+.data-health-banner.fail{background:var(--critical-soft); color:var(--critical); border-bottom:1px solid var(--critical);}
+.data-health-banner .icon{font-size:15px; flex-shrink:0;}
+.data-health-banner .sub{font-weight:500; opacity:0.85;}
 .market-stat-cell{background:var(--surface-2); border-radius:8px; padding:10px 12px;}
 .market-stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .market-stat-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px; margin-top:3px;}
@@ -245,6 +250,8 @@ footer .mono{font-size:11px;}
     </div>
   </div>
 </div>
+
+<div id="dataHealthBanner" hidden></div>
 
 <div class="wrap">
   <section class="panel info" id="panelSummary">
@@ -451,6 +458,29 @@ footer .mono{font-size:11px;}
     document.getElementById("lastUpdated").textContent=fmtDateTime(d.meta.last_updated);
     document.getElementById("nextUpdate").textContent=fmtDateTime(d.meta.next_update);
     document.getElementById("footerTradingDate").textContent="Trading date "+(d.meta.trading_date||"—");
+  }
+  // Honest status banner - only shown when something real is actually wrong, never a
+  // decorative "all good" message. "fail" (data gagal dimuat) only when BOTH the primary
+  // (IDX) source AND the Pluang-based secondary fallback came up empty for a given piece of
+  // data; "warn" when primary failed but a real secondary substitute is in use. The hourly
+  // recovery-watchdog workflow keeps retrying in the background regardless of which state
+  // this is, so both messages mention that.
+  function renderDataHealth(d){
+    var el=document.getElementById("dataHealthBanner"), h=d.data_health;
+    if (!h || h.all_primary_ok){ el.hidden=true; el.innerHTML=""; return; }
+    var failed=[];
+    if (h.net_value_source==="none") failed.push("data net asing/broker");
+    if (h.active_brokers_source==="none") failed.push("data broker paling aktif");
+    var usingFallback=[];
+    if (h.ihsg_level_source==="tradingview_chart_fallback") usingFallback.push("level IHSG (dari chart TradingView)");
+    if (h.net_value_source==="pluang_proxy") usingFallback.push("ranking net asing (estimasi broker asing via Pluang)");
+    if (h.active_brokers_source==="pluang_proxy") usingFallback.push("broker paling aktif (estimasi via Pluang)");
+    el.hidden=false;
+    if (failed.length){
+      el.innerHTML='<div class="data-health-banner fail"><span class="icon">&#10060;</span><div>Data gagal dimuat: '+esc(failed.join(", "))+'. <span class="sub">Sumber utama (IDX) dan cadangan (Pluang) sama-sama tidak tersedia saat ini - dicoba ulang otomatis tiap jam.</span></div></div>';
+    } else {
+      el.innerHTML='<div class="data-health-banner warn"><span class="icon">&#9888;</span><div>Sumber data utama (IDX) sedang gangguan - sementara memakai data cadangan untuk: '+esc(usingFallback.join(", "))+'. <span class="sub">Akan otomatis kembali ke data resmi begitu IDX pulih (dicek tiap jam).</span></div></div>';
+    }
   }
   function renderSummary(d){
     document.getElementById("regimeBadge").textContent=d.market_summary.regime;
@@ -725,7 +755,7 @@ footer .mono{font-size:11px;}
   }
   function render(){
     var d=state.data; if (!d) return;
-    renderHeader(d); renderSummary(d); renderSentiment(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWinRate(d); renderWeeklySummary(d); renderWatch(d); renderBriefing(d);
+    renderHeader(d); renderDataHealth(d); renderSummary(d); renderSentiment(d); renderTechNews(d); renderBroker(d); renderRecs(d); renderWinRate(d); renderWeeklySummary(d); renderWatch(d); renderBriefing(d);
     computeStatus();
   }
 
