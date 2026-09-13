@@ -98,11 +98,11 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .bandar-col-lbl{font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--accent); font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:6px;}
 .bandar-col-lbl::before{content:""; width:4px; height:12px; border-radius:2px; background:var(--accent);}
 .broker-table-wrap{overflow-x:auto;}
-.broker-table{width:100%; border-collapse:collapse; font-size:12.5px;}
-.broker-table th{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); font-weight:700; padding:8px; border-bottom:2px solid var(--accent-soft); white-space:nowrap;}
-.broker-table th:first-child{text-align:left;}
-.broker-table td{text-align:right; padding:8px; border-bottom:1px solid var(--gridline); white-space:nowrap;}
-.broker-table td:first-child{text-align:left;}
+.broker-table{width:auto; max-width:100%; border-collapse:collapse; font-size:12.5px;}
+.broker-table th{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); font-weight:700; padding:8px 16px; border-bottom:2px solid var(--accent-soft); white-space:nowrap;}
+.broker-table th:first-child{text-align:left; padding-left:4px;}
+.broker-table td{text-align:right; padding:8px 16px; border-bottom:1px solid var(--gridline); white-space:nowrap;}
+.broker-table td:first-child{text-align:left; padding-left:4px;}
 .broker-table tbody tr:last-child td{border-bottom:none;}
 .broker-table tbody tr:nth-child(even){background:rgba(127,127,127,0.05);}
 .broker-table tbody tr:hover{background:var(--accent-soft);}
