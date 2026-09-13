@@ -423,7 +423,7 @@ footer .mono{font-size:11px;}
   function renderSummary(d){
     document.getElementById("regimeBadge").textContent=d.market_summary.regime;
     document.getElementById("marketSummaryText").textContent=d.market_summary.summary;
-    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240);
+    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240,null,"Mingguan (6 Bulan)");
     var ms=d.ihsg.market_stats;
     if (ms){
       var cells=[
