@@ -200,14 +200,13 @@ async function main() {
 
   // IDX's own official data (index-summary / foreign-flow / broker-summary) was down and
   // buildDashboard() fell back to real, honest substitutes - see data_health in the output
-  // (lib/pipeline.mjs) - rather than throwing. This run's output is valid either way and has
-  // already been written above, so it's never lost. Real official data is still better than
-  // a fallback though, so a degraded run still exits non-zero here: not to retry within this
-  // same job (that used to cause a single run to take up to ~45 minutes - removed), but
-  // purely as an honest status signal - it shows this run as "failed" in the Actions log, and
-  // the separate hourly recovery-watchdog workflow checks this exact data_health flag on its
-  // own schedule to decide whether it's worth trying again, closing the loop without making
-  // any single run wait around for it.
+  // (lib/pipeline.mjs) - rather than throwing. This run's output is valid and has already
+  // been written above. Deliberately exits 0 even when degraded: the automation itself did
+  // its job correctly (a real, honest dashboard got published), so marking the Actions run
+  // "failed" here would misrepresent that and needlessly alarm - the dashboard's own
+  // data-health banner is the right place to surface "some data is on a fallback source" to
+  // whoever's looking, and the hourly recovery-watchdog workflow reads data_health directly
+  // from the written file (not this exit code) to decide whether to try again.
   const isDegraded = !dashboard.data_health.all_primary_ok;
   console.log(
     "Dashboard updated for",
@@ -217,8 +216,7 @@ async function main() {
     "- data_health:", JSON.stringify(dashboard.data_health)
   );
   if (isDegraded) {
-    console.error("Run used fallback data instead of real IDX data for at least one source - output above is still valid and already saved; the hourly recovery-watchdog will keep trying to get real data back.");
-    process.exitCode = 1;
+    console.log("Note: at least one source used fallback data instead of real IDX data - see data_health above. The hourly recovery-watchdog will keep trying to get real data back.");
   }
 }
 
