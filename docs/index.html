@@ -193,7 +193,6 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .card-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; margin-top:6px;}
 .stock-card{background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:16px; display:flex; flex-direction:column; gap:12px;}
 .stock-card-head{display:flex; align-items:center; gap:10px;}
-.stock-rank{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--bg); background:var(--accent); width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;}
 .stock-name{flex:1; min-width:0;}
 .stock-ticker{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px;}
 .stock-full-name{font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -625,7 +624,7 @@ footer .mono{font-size:11px;}
     var isBuyCall = s.verdict && s.verdict.indexOf("Buy")!==-1;
     var gainPct = (isBuyCall && s.entry) ? Math.round((s.target-s.entry)/s.entry*1000)/10 : null;
     var gainPctHtml = gainPct!=null ? '<div class="pct-gain">+'+gainPct+'%</div>' : "";
-    return '<article class="stock-card"><div class="stock-card-head"><span class="stock-rank">'+s.rank+'</span><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
+    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
       + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div>'+gainPctHtml+'</div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'

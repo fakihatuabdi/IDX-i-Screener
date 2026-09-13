@@ -58,7 +58,7 @@ Sekali jalan (baik otomatis maupun manual), pipeline memakai sekitar:
 
 ## Win rate
 
-Setiap rekomendasi Buy/Sell (bukan Hold) dicatat dengan harga saat direkomendasikan. Di run berikutnya, harga sungguhan (dari screener asli) dicek terhadap catatan itu untuk menentukan benar/salah — ini angka real yang bisa diverifikasi, bukan estimasi. Disimpan di `docs/data/track-record.json`, mulai dilacak sejak **14 September 2026** (bukan sejak awal, biar adil - tidak diseed data lama yang tidak lengkap). Field "Potensi %" di kartu saham Buy/Strong Buy itu BEDA - itu skor keyakinan dari sinyal teknikal/fundamental saat ini (transparan, dibatasi 50-90%), bukan win rate historisnya.
+Setiap rekomendasi Buy/Sell (bukan Hold) dicatat dengan harga saat direkomendasikan. Di run berikutnya, harga sungguhan (dari screener asli) dicek terhadap catatan itu untuk menentukan benar/salah — ini angka real yang bisa diverifikasi, bukan estimasi. Disimpan di `docs/data/track-record.json`, mulai dilacak sejak **14 September 2026** (bukan sejak awal, biar adil - tidak diseed data lama yang tidak lengkap). Field "Success Rate %" di kartu saham Buy/Strong Buy itu BEDA - itu skor keyakinan dari sinyal teknikal/fundamental saat ini (transparan, dibatasi 50-90%), bukan win rate historisnya.
 
 ## Catatan: kenapa pindah dari Netlify
 
