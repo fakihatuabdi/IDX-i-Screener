@@ -177,7 +177,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .winrate-cell.na{border-left-color:var(--border);}
 .winrate-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .winrate-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:17px; margin-top:3px; color:var(--good);}
-.winrate-cell.na .val{font-size:12px; font-weight:600; color:var(--text-muted); font-family:"IBM Plex Sans",sans-serif;}
+.winrate-cell.na .val{color:var(--text-muted);}
 .winrate-cell .sub{font-size:10px; color:var(--text-muted); margin-top:2px;}
 /* Overall win rate is the headline trust metric shown to users - given real hero treatment
    (bigger number, gradient card, badge label) instead of blending in with the per-strategy
@@ -187,6 +187,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .winrate-cell.hero .val{font-size:38px; line-height:1; margin-top:6px; color:var(--good);}
 .winrate-cell.hero.na{background:var(--surface-2); border-color:var(--border); box-shadow:none;}
 .winrate-cell.hero.na .lbl{color:var(--text-muted);}
+.winrate-cell.hero.na .val{color:var(--text-muted);}
 .winrate-cell.hero .sub{color:var(--text-1); font-weight:600; margin-top:4px;}
 .pick-cell{background:var(--surface-2); border-radius:8px; padding:12px 14px;}
 .pick-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; margin-bottom:6px;}
@@ -715,7 +716,7 @@ footer .mono{font-size:11px;}
       var stat=r[1], isHero=r[2], heroCls=isHero?" hero":"";
       var label=(isHero?"&#11088; ":"")+esc(r[0]);
       if (!stat || stat.total===0){
-        return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val">Belum ada data</div></div>';
+        return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">0%</div><div class="sub">Belum ada rekomendasi yang dievaluasi</div></div>';
       }
       var subExtra=isHero?" &middot; dihitung dari harga riil, bukan estimasi":"";
       return '<div class="winrate-cell'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat'+subExtra+'</div></div>';
@@ -735,7 +736,7 @@ footer .mono{font-size:11px;}
     document.getElementById("weeklyStatsGrid").innerHTML=rows.map(function(r){
       var stat=r[1], isHero=r[2], heroCls=isHero?" hero":"";
       var label=(isHero?"&#11088; ":"")+esc(r[0]);
-      if (!stat||stat.total===0) return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val">Belum ada data</div></div>';
+      if (!stat||stat.total===0) return '<div class="winrate-cell na'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">0%</div><div class="sub">Belum ada rekomendasi yang dievaluasi</div></div>';
       return '<div class="winrate-cell'+heroCls+'"><div class="lbl">'+label+'</div><div class="val tab-nums">'+stat.pct+'%</div><div class="sub">'+stat.correct+'/'+stat.total+' rekomendasi tepat</div></div>';
     }).join("");
     function pickCell(label,pick){
