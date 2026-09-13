@@ -51,8 +51,8 @@ Anda bisa lihat riwayat semua run (otomatis maupun manual) di tab **Actions** ka
 Sekali jalan (baik otomatis maupun manual), pipeline memakai:
 - Screener 300 saham + foreign-flow 4 halaman (800 baris) + chart intraday IHSG.
 - Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 210 hari, chart intraday per jam, rating teknikal TradingView, dan data fundamental.
-- Broker summary top 10 aktif (market-wide, endpoint ini tidak punya dimensi per-saham), berita bursa, dan corporate action untuk 10 saham Buy.
-- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 + 1 + 10 = ~378 call/hari kalau dijalankan sekali sehari — jauh di bawah kuota bulanan Pro (~11.000+ call/bulan kalau jalan tiap hari bursa).
+- Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 40 saham paling aktif hari itu (40 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa dan corporate action untuk 10 saham Buy.
+- Total sekitar 300 + 4 + 1 + 1 + (20 x 3) + 1 + 40 + 1 + 10 = ~418 call/hari kalau dijalankan sekali sehari — masih jauh di bawah kuota bulanan Pro (~11.000+ call/bulan kalau jalan tiap hari bursa).
 
 ## Win rate
 
