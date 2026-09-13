@@ -567,12 +567,14 @@ footer .mono{font-size:11px;}
   }
   function renderBroker(d){
     var bf=d.broker_flow, totalEl=document.getElementById("netForeignTotal");
-    var srcNote=bf.net_value_source==="pluang_proxy"?" (estimasi broker asing, bukan data resmi IDX)":"";
+    // Which real source this came from (official IDX, or the Pluang-based estimate) is
+    // already communicated once, up top, by the data-health banner - sections below just
+    // render normally either way, never repeating the caveat per-widget.
     if (bf.net_value_source==="none" || bf.net_foreign_total==null){
       totalEl.textContent="Data tidak tersedia"; totalEl.style.color="var(--text-muted)";
     } else {
       var up=bf.net_foreign_total>=0;
-      totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total))+srcNote; totalEl.style.color=up?"var(--good)":"var(--critical)";
+      totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total)); totalEl.style.color=up?"var(--good)":"var(--critical)";
     }
     function list(items,positive){
       if (!items||!items.length) return '<li class="empty-note">Data foreign-flow tidak tersedia hari ini.</li>';
@@ -582,8 +584,7 @@ footer .mono{font-size:11px;}
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
     var ab=bf.active_brokers;
     if (ab && ab.top10 && ab.top10.length){
-      var dateLabel=(ab.date||"—")+(ab.source==="pluang_proxy"?" · estimasi dari Pluang (250 saham teraktif)":"");
-      document.getElementById("bandarTicker").textContent=dateLabel;
+      document.getElementById("bandarTicker").textContent=ab.date||"—";
       var maxValue=Math.max.apply(null,ab.top10.map(function(b){return b.value;}));
       document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b,i){
         var barPct=maxValue?Math.round(b.value/maxValue*100):0;
