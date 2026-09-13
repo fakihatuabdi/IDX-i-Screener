@@ -537,29 +537,32 @@ footer .mono{font-size:11px;}
   }
   function renderBroker(d){
     var bf=d.broker_flow, totalEl=document.getElementById("netForeignTotal");
-    if (bf.foreign_flow_available===false || bf.net_foreign_total==null){
+    var srcNote=bf.net_value_source==="pluang_proxy"?" (estimasi broker asing, bukan data resmi IDX)":"";
+    if (bf.net_value_source==="none" || bf.net_foreign_total==null){
       totalEl.textContent="Data tidak tersedia"; totalEl.style.color="var(--text-muted)";
     } else {
       var up=bf.net_foreign_total>=0;
-      totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total)); totalEl.style.color=up?"var(--good)":"var(--critical)";
+      totalEl.textContent=(up?"+":"-")+"Rp"+fmtRp(Math.abs(bf.net_foreign_total))+srcNote; totalEl.style.color=up?"var(--good)":"var(--critical)";
     }
     function list(items,positive){
-      if (!items||!items.length) return '<li class="empty-note">Data foreign-flow IDX tidak tersedia hari ini.</li>';
+      if (!items||!items.length) return '<li class="empty-note">Data foreign-flow tidak tersedia hari ini.</li>';
       return items.map(function(it,i){ return '<li class="rank-row"><span class="rank-idx">'+(i+1)+'</span><span class="rank-ticker">'+esc(it.ticker)+'</span><span class="rank-val tab-nums '+(positive?"up":"down")+'">'+(positive?"+":"-")+"Rp"+fmtRp(Math.abs(it.net_value))+'</span></li>'; }).join("");
     }
     document.getElementById("netBuyList").innerHTML=list(bf.top_net_buy,true);
     document.getElementById("netSellList").innerHTML=list(bf.top_net_sell,false);
     var ab=bf.active_brokers;
     if (ab && ab.top10 && ab.top10.length){
-      document.getElementById("bandarTicker").textContent=ab.date||"—";
+      var dateLabel=(ab.date||"—")+(ab.source==="pluang_proxy"?" · estimasi dari Pluang (250 saham teraktif)":"");
+      document.getElementById("bandarTicker").textContent=dateLabel;
       var maxValue=Math.max.apply(null,ab.top10.map(function(b){return b.value;}));
       document.getElementById("activeBrokerRows").innerHTML=ab.top10.map(function(b,i){
         var barPct=maxValue?Math.round(b.value/maxValue*100):0;
+        var nameHtml=b.name?'<br><span class="broker-name">'+esc(b.name)+'</span>':"";
         return '<tr class="'+(i===0?"broker-top":"")+'">'
-          + '<td><div class="broker-id-cell"><span class="broker-rank-badge">'+(i+1)+'</span><div><span class="broker-code">'+esc(b.broker)+'</span><br><span class="broker-name">'+esc(b.name)+'</span></div></div></td>'
+          + '<td><div class="broker-id-cell"><span class="broker-rank-badge">'+(i+1)+'</span><div><span class="broker-code">'+esc(b.broker)+'</span>'+nameHtml+'</div></div></td>'
           + '<td class="tab-nums">'+IDR.format(b.volume)+'</td>'
           + '<td class="tab-nums"><div class="broker-value-cell"><span>Rp'+fmtRp(b.value)+'</span><span class="broker-value-bar"><span style="width:'+barPct+'%"></span></span></div></td>'
-          + '<td class="tab-nums">'+IDR.format(b.frequency)+'</td>'
+          + '<td class="tab-nums">'+(b.frequency!=null?IDR.format(b.frequency):"&mdash;")+'</td>'
           + '<td>'+(b.top_pick_ticker?'<span class="broker-top-pick"><span class="broker-pick-ticker">'+esc(b.top_pick_ticker)+'</span>'+(b.top_pick_avg_price!=null?' @ Rp'+IDR.format(b.top_pick_avg_price):"")+'</span>':'<span class="empty-note">&mdash;</span>')+'</td></tr>';
       }).join("");
       document.getElementById("bandarBox").hidden=false;

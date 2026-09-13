@@ -198,7 +198,28 @@ async function main() {
   await writeFile(LATEST_PATH, JSON.stringify(output));
   await writeFile(TRACK_RECORD_PATH, JSON.stringify(trackRecord));
 
-  console.log("Dashboard updated OK for", dashboard.meta.trading_date, "- win rate:", winRate.overall, "- friday recap:", isFridayRun);
+  // IDX's own official data (index-summary / foreign-flow) was down and buildDashboard()
+  // fell back to real, honest substitutes (see lib/pipeline.mjs) rather than throwing - this
+  // run's output is valid and has already been written above, so it's never lost. But real
+  // official data is still better than a fallback, so this exits non-zero anyway: the
+  // workflow's retry loop (daily-update.yml) treats that as "not fully recovered yet" and
+  // tries again a few minutes later, re-running this whole script (which re-fetches
+  // everything fresh) - as soon as an attempt gets real data back, that attempt exits 0 and
+  // the loop stops there, so the dashboard ends up on real data again as soon as IDX
+  // recovers, without waiting for tomorrow's scheduled run. If every attempt in the retry
+  // window stays degraded, the last attempt's honest fallback output is what gets committed.
+  const isDegraded = dashboard.ihsg.market_stats == null || dashboard.broker_flow.net_value_source !== "idx";
+  console.log(
+    "Dashboard updated for",
+    dashboard.meta.trading_date,
+    "- win rate:", winRate.overall,
+    "- friday recap:", isFridayRun,
+    "- degraded (IDX data unavailable, using fallback):", isDegraded
+  );
+  if (isDegraded) {
+    console.error("Run used fallback data instead of real IDX data - exiting non-zero so the workflow retries for the real thing (output above is still valid and already saved).");
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {
