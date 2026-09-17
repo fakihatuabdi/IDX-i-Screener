@@ -204,16 +204,16 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .stock-name{flex:1; min-width:0;}
 .stock-ticker{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:15px;}
 .stock-full-name{font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.price-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center;}
-.price-grid.two-cell{grid-template-columns:repeat(2,1fr);}
+.price-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(68px,1fr)); gap:8px; text-align:center;}
 .price-cell{background:var(--surface); border-radius:6px; padding:8px 4px;}
-.price-cell .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
+.price-cell .lbl{font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:600;}
 .price-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; margin-top:2px;}
 .price-cell .val.range{font-size:12px;}
-.price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
+.price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.target2 .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
 .last-price-row{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--text-muted); padding:0 2px; margin-bottom:6px;}
 .last-price-row .val{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--text); font-size:13px;}
 .pct-gap{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--text-muted); background:var(--surface-2,var(--surface)); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
+.pct-gap.warn{color:var(--critical); background:var(--critical-soft);}
 .pct-gain{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--good); background:var(--good-soft); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .catalyst{font-size:12.5px; color:var(--text-2); text-align:justify; text-justify:inter-word;} .catalyst b{color:var(--text-1);}
 .source-tag{font-size:10.5px; color:var(--text-muted); text-align:left;}
@@ -673,25 +673,39 @@ footer .mono{font-size:11px;}
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Success Rate ~'+s.potential_pct+'%</span>' : "";
-    // Entry is only a thing for Buy/Strong Buy - a real accumulation ZONE (entry_low..entry_high),
-    // not one exact price. Sell/Strong Sell and Hold only carry target/stop-loss (act now at
-    // today's real close, already shown separately as "Harga Terakhir").
+    // Entry is only a thing for Buy/Strong Buy. Scalping/Swing get a real accumulation ZONE
+    // (entry_low..entry_high, can sit above today's close for a breakout call). Investment
+    // instead gets a single fundamental-led "Max Buy" ceiling. Sell/Strong Sell and Hold carry
+    // neither - just target1/target2/stop-loss (act now at today's real close, already shown
+    // separately as "Harga Terakhir").
     var isBuyCall = s.verdict && s.verdict.indexOf("Buy")!==-1;
     var hasEntry = isBuyCall && s.entry_low!=null && s.entry_high!=null;
-    // Real potential gain: % distance from the top of the entry zone (the conservative,
-    // worst-case real entry price target/stop-loss were actually derived from) to target.
-    var gainPct = (hasEntry && s.entry_high) ? Math.round((s.target-s.entry_high)/s.entry_high*1000)/10 : null;
+    var hasMaxBuy = isBuyCall && s.max_buy!=null;
+    var refPrice = hasEntry ? s.entry_high : hasMaxBuy ? s.max_buy : null;
+    // Real potential gain: % distance from the reference entry price (top of the zone for
+    // Scalping/Swing, or the Max Buy ceiling for Investment - both the conservative, worst-case
+    // real price target1/stop-loss were actually derived from) to target1.
+    var gainPct = (refPrice && s.target1!=null) ? Math.round((s.target1-refPrice)/refPrice*1000)/10 : null;
     var gainPctHtml = gainPct!=null ? '<div class="pct-gain">+'+gainPct+'%</div>' : "";
-    // How far the bottom of the buy zone sits below today's real price - lets the reader see
-    // at a glance how deep a pullback this call is willing to wait for.
-    var entryGapPct = (hasEntry && s.entry_low!=null && s.last_price) ? Math.round((s.last_price-s.entry_low)/s.last_price*1000)/10 : null;
-    var entryGapHtml = (entryGapPct!=null && entryGapPct>0) ? '<div class="pct-gap">hingga -'+entryGapPct+'% dari sekarang</div>' : "";
     var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir (Close)</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
-    var entryCellHtml = hasEntry
-      ? '<div class="price-cell entry"><div class="lbl">Entry (Rentang)</div><div class="val tab-nums range">'+fmtNum(s.entry_low)+'&ndash;'+fmtNum(s.entry_high)+'</div>'+entryGapHtml+'</div>'
-      : "";
-    var priceGridHtml = '<div class="price-grid'+(hasEntry?"":" two-cell")+'">'+entryCellHtml
-      + '<div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div>'+gainPctHtml+'</div>'
+    var entryCellHtml = "";
+    if (hasEntry){
+      // How far the bottom of the buy zone sits below today's real price - lets the reader see
+      // at a glance how deep a pullback this call is willing to wait for.
+      var entryGapPct = (s.entry_low!=null && s.last_price) ? Math.round((s.last_price-s.entry_low)/s.last_price*1000)/10 : null;
+      var entryGapHtml = (entryGapPct!=null && entryGapPct!==0) ? '<div class="pct-gap">hingga '+(entryGapPct>0?"-"+entryGapPct:"+"+Math.abs(entryGapPct))+'% dari sekarang</div>' : "";
+      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Entry (Rentang)</div><div class="val tab-nums range">'+fmtNum(s.entry_low)+'&ndash;'+fmtNum(s.entry_high)+'</div>'+entryGapHtml+'</div>';
+    } else if (hasMaxBuy){
+      // Max Buy vs today's real price - negative means the market is currently trading ABOVE
+      // the fundamental-led ceiling (already pricier than our margin-of-safety allows).
+      var maxBuyGapPct = s.last_price ? Math.round((s.max_buy-s.last_price)/s.last_price*1000)/10 : null;
+      var maxBuyGapHtml = maxBuyGapPct!=null ? '<div class="pct-gap'+(maxBuyGapPct<0?" warn":"")+'">'+(maxBuyGapPct>=0?"+":"")+maxBuyGapPct+'% vs sekarang</div>' : "";
+      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+'</div>';
+    }
+    var target2Html = s.target2!=null ? '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>' : "";
+    var priceGridHtml = '<div class="price-grid">'+entryCellHtml
+      + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+gainPctHtml+'</div>'
+      + target2Html
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
