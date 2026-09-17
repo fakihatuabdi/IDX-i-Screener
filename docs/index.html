@@ -365,7 +365,7 @@ footer .mono{font-size:11px;}
   // tiap hari): black background, green/red candles, gridlines with price labels on the
   // Y-axis and date labels on the X-axis. Volume bars are colored by that day's direction
   // too, but in a different hue family (cyan/amber) so they're never confused with candles.
-  function renderCandles(candles,w,h,overlays,caption){
+  function renderCandles(candles,w,h,overlays,caption,baseline){
     if(!candles||!candles.length) return "";
     caption=caption||"Harian";
     w=w||320; h=h||230; overlays=(overlays||[]).filter(function(o){return o.series&&o.series.length;});
@@ -377,6 +377,7 @@ footer .mono{font-size:11px;}
     var n=candles.length, slot=(w-mLeft-mRight)/n, bodyW=Math.max(2,slot*0.72);
     var overlayVals=[]; overlays.forEach(function(o){ o.series.forEach(function(v){ if(v!=null) overlayVals.push(v); }); });
     var priceVals=candles.map(function(c){return c.l;}).concat(candles.map(function(c){return c.h;})).concat(overlayVals);
+    if (baseline!=null) priceVals.push(baseline);
     var lo=Math.min.apply(null,priceVals), hi=Math.max.apply(null,priceVals);
     var range=(hi-lo)||1, pad=range*0.08; lo-=pad; hi+=pad; range=hi-lo;
     function y(v){ return mTop+priceH*(1-(v-lo)/range); }
@@ -446,9 +447,26 @@ footer .mono{font-size:11px;}
       return paths+label;
     }).join("");
 
+    // Baseline area (IHSG chart only, via the optional `baseline` arg - the previous trading
+    // day's real close): a light red/green fill per day between that day's close and the
+    // baseline, so it's visible at a glance whether each day sits above (green, gained vs the
+    // reference close) or below (red, lost vs it) - not the same thing as a candle's own
+    // body color, which reflects that day's OWN open-to-close direction instead.
+    var baselineArea="";
+    if (baseline!=null){
+      var by=y(baseline);
+      baselineArea=candles.map(function(c,i){
+        var xx=x(i), cy=y(c.c), up=c.c>=baseline;
+        var top=Math.min(cy,by), areaH=Math.max(0.5,Math.abs(cy-by));
+        return '<rect x="'+(xx-slot/2)+'" y="'+top+'" width="'+slot+'" height="'+areaH+'" fill="'+(up?"#22c55e":"#ef4444")+'" opacity="0.16"/>';
+      }).join("");
+      baselineArea+='<line x1="'+mLeft+'" y1="'+by+'" x2="'+(w-mRight)+'" y2="'+by+'" stroke="#9199ad" stroke-width="1" stroke-dasharray="4,3"/>'
+        + '<text x="'+(mLeft+3)+'" y="'+(by-3)+'" fill="#9199ad" font-size="7.5" font-family="IBM Plex Mono, monospace">Close Sebelumnya: Rp'+esc(fmtAxisPrice(baseline))+'</text>';
+    }
+
     return '<div class="mini-chart-wrap"><svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'
       + '<rect x="0" y="0" width="'+w+'" height="'+h+'" fill="#131722"/>'
-      + grid + bars + volBars + overlayLines + yLabels + xLabels + xCaption
+      + baselineArea + grid + bars + volBars + overlayLines + yLabels + xLabels + xCaption
       + '</svg></div>';
   }
 
@@ -493,7 +511,7 @@ footer .mono{font-size:11px;}
   function renderSummary(d){
     document.getElementById("regimeBadge").textContent=d.market_summary.regime;
     document.getElementById("marketSummaryText").textContent=d.market_summary.summary;
-    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240,null,"Harian (6 Bulan)");
+    document.getElementById("ihsgChartWrap").innerHTML=renderCandles(d.ihsg.candles,900,240,null,"Harian (6 Bulan)",d.ihsg.prev_close);
     var ms=d.ihsg.market_stats;
     if (ms){
       var cells=[
