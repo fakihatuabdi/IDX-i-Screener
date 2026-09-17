@@ -82,7 +82,12 @@ function recordTodaysCalls(trackRecord, dashboard) {
         ticker: item.ticker,
         strategy,
         verdict: item.verdict,
-        price_at_call: item.entry, // STRATEGY_BANDS always uses a 1.0 multiplier for entry, so this equals the real last close at call time
+        // The real close price at the moment of the call - not `entry`, which is now a real
+        // support/resistance-derived pullback/bounce target that may sit away from that price
+        // and might never actually get filled. Win-rate has to measure against the real price
+        // we actually had, or a call whose entry never triggers would still count as "correct"
+        // just because price drifted up anyway.
+        price_at_call: item.last_price,
         evaluated: false,
       });
     }

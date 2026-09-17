@@ -209,6 +209,9 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .price-cell .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .price-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; margin-top:2px;}
 .price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
+.last-price-row{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--text-muted); padding:0 2px; margin-bottom:6px;}
+.last-price-row .val{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--text); font-size:13px;}
+.pct-gap{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--text-muted); background:var(--surface-2,var(--surface)); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .pct-gain{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--good); background:var(--good-soft); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .catalyst{font-size:12.5px; color:var(--text-2); text-align:justify; text-justify:inter-word;} .catalyst b{color:var(--text-1);}
 .source-tag{font-size:10.5px; color:var(--text-muted); text-align:left;}
@@ -674,9 +677,16 @@ footer .mono{font-size:11px;}
     var isBuyCall = s.verdict && s.verdict.indexOf("Buy")!==-1;
     var gainPct = (isBuyCall && s.entry) ? Math.round((s.target-s.entry)/s.entry*1000)/10 : null;
     var gainPctHtml = gainPct!=null ? '<div class="pct-gain">+'+gainPct+'%</div>' : "";
+    // Gap between the recommended entry (derived from real support/resistance + ATR, not
+    // just today's close) and where price actually is right now - lets the reader see at a
+    // glance whether this is a "buy now" (0%) or a "wait for a pullback/bounce" call.
+    var entryGapPct = (s.entry!=null && s.last_price) ? Math.round((s.entry-s.last_price)/s.last_price*1000)/10 : null;
+    var entryGapHtml = (entryGapPct!=null && entryGapPct!==0) ? '<div class="pct-gap">'+(entryGapPct>0?'+':'')+entryGapPct+'% dari sekarang</div>' : "";
+    var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir (Close)</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
-      + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div>'+gainPctHtml+'</div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
+      + lastPriceHtml
+      + '<div class="price-grid"><div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div>'+entryGapHtml+'</div><div class="price-cell target"><div class="lbl">Target</div><div class="val tab-nums">'+fmtNum(s.target)+'</div>'+gainPctHtml+'</div><div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>'
       + '<div class="tech-line">'+esc(s.technical)+'</div>'
       + '<div class="catalyst"><b>Catalyst:</b> '+esc(s.catalyst)+'<br><span class="source-tag">Sumber: '+esc(s.source)+'</span></div>'
       + renderFundamentals(s.fundamentals)
