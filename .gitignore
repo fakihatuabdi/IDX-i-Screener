@@ -1,6 +1,8 @@
 node_modules/
 .env
 .env.*
+__pycache__/
+*.pyc
 
 # Raw scraper OUTPUT (generated financial_reports.csv) - rebuildable; only the derived
 # docs/data/fundamentals-*.json gets committed. watchlist.csv in the same folder is committed

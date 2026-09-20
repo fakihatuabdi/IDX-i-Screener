@@ -17,6 +17,7 @@ import logging
 import math
 import os
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import yfinance as yf
@@ -28,10 +29,19 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 REQUEST_DELAY_SECONDS = 1.0
 
 REPORT_FIELDS = [
-    "ticker", "name", "year", "period",
+    "ticker", "name", "year", "period", "currency",
     "total_assets", "current_assets", "total_liabilities", "current_liabilities",
     "total_equity", "revenue", "net_income", "operating_cash_flow", "capital_expenditure",
     "free_cash_flow", "outstanding_shares",
+    "per", "pbv", "dividend_yield",
+]
+
+# Monetary fields only - outstanding_shares is a pure share count and must never be scaled by
+# an FX rate, and per/pbv/dividend_yield are already unitless ratios/percentages.
+MONEY_FIELDS = [
+    "total_assets", "current_assets", "total_liabilities", "current_liabilities",
+    "total_equity", "revenue", "net_income", "operating_cash_flow", "capital_expenditure",
+    "free_cash_flow",
 ]
 
 # yfinance's line-item names vary by company/sector (a bank's balance sheet has no "Current
@@ -53,6 +63,29 @@ FIELD_CANDIDATES = {
 }
 
 PERIOD_BY_MONTH = {3: "Q1", 6: "Q2", 9: "Q3", 12: "Q4"}
+
+_FX_RATE_CACHE = {}
+
+
+def get_usd_idr_rate(as_of):
+    """Real USD/IDR closing rate as of a given quarter-end date, from Yahoo's own FX data -
+    cached per date since the same quarter-end repeats across every USD-reporting ticker.
+    Returns None (never a guess) if the real rate genuinely can't be fetched."""
+    key = as_of.date()
+    if key in _FX_RATE_CACHE:
+        return _FX_RATE_CACHE[key]
+    rate = None
+    try:
+        hist = yf.Ticker("USDIDR=X").history(
+            start=(as_of - timedelta(days=10)).strftime("%Y-%m-%d"),
+            end=(as_of + timedelta(days=1)).strftime("%Y-%m-%d"),
+        )
+        if not hist.empty:
+            rate = float(hist["Close"].iloc[-1])
+    except Exception:
+        logger.exception("Failed to fetch USD/IDR rate for %s", key)
+    _FX_RATE_CACHE[key] = rate
+    return rate
 
 
 def load_watchlist(path: Path) -> list:
@@ -109,32 +142,80 @@ def resolve(df, column, concept: str):
     return None
 
 
+def ratio_pct(info_dict, key):
+    """yfinance reports these .info ratios as a plain fraction (0.218 = 21.8%), not a
+    percentage - convert once here so the stored number always means "already a percent"."""
+    v = info_dict.get(key)
+    return round(v * 100, 2) if isinstance(v, (int, float)) else None
+
+
+def sane(v, lo, hi):
+    """yfinance's own PER/PBV/dividend-yield can come back nonsensical for USD-reporting IDX
+    tickers - e.g. ADRO's priceToBook showed ~16,500x, almost certainly Yahoo dividing an IDR
+    price by a raw USD-scale book value without converting it on their own side. A number
+    outside any plausible real-world range is more likely a data-source glitch than a real
+    figure, so it's dropped (null) rather than shown as if it were trustworthy."""
+    return round(v, 2) if isinstance(v, (int, float)) and lo <= v <= hi else None
+
+
 def fetch_ticker(ticker: str) -> list:
     info = yf.Ticker(f"{ticker}.JK")
     fin, bs, cf = info.quarterly_financials, info.quarterly_balance_sheet, info.quarterly_cashflow
     if fin is None or fin.empty:
         return []
 
-    # Real company name for the dashboard's search-by-name - best effort, never blocks the
-    # actual financial data if it's unavailable for some reason.
+    # Real company name/valuation snapshot for the dashboard - best effort, never blocks the
+    # actual financial statement data if any single field is unavailable. PER/PBV/dividend
+    # yield are CURRENT valuation ratios (today's price over trailing earnings/book/dividends)
+    # - they don't have a meaningful "as of that historical quarter" value, so they're stored
+    # once per ticker rather than repeated (and misrepresented as historical) on every row.
+    name, per, pbv, dividend_yield = "", None, None, None
+    financial_currency = None
     try:
-        name = info.info.get("longName") or info.info.get("shortName") or ""
-        name = name.replace(",", "")  # the CSV writer below is a plain comma-separated file, not quoted
+        meta = info.info
+        name = (meta.get("longName") or meta.get("shortName") or "").replace(",", "")
+        per = sane(meta.get("trailingPE"), -500, 500)
+        pbv = sane(meta.get("priceToBook"), 0, 100)
+        dividend_yield = sane(ratio_pct(meta, "trailingAnnualDividendYield"), 0, 50)
+        financial_currency = meta.get("financialCurrency")
     except Exception:
-        name = ""
+        logger.exception("Failed to fetch info/valuation snapshot for %s", ticker)
 
     rows = []
     for column in fin.columns:
         period = PERIOD_BY_MONTH.get(column.month)
         if period is None:
             continue
-        row = {"ticker": ticker, "name": name, "year": column.year, "period": period}
+        row = {
+            "ticker": ticker, "name": name, "year": column.year, "period": period,
+            "per": per, "pbv": pbv, "dividend_yield": dividend_yield,
+        }
         for concept in ("revenue", "net_income"):
             row[concept] = resolve(fin, column, concept)
         for concept in ("total_assets", "current_assets", "total_liabilities", "current_liabilities", "total_equity", "outstanding_shares"):
             row[concept] = resolve(bs, column, concept)
         for concept in ("operating_cash_flow", "capital_expenditure", "free_cash_flow"):
             row[concept] = resolve(cf, column, concept)
+
+        # Some IDX issuers (mostly mining/energy, e.g. ADRO/INCO/ITMG) report in USD because
+        # that's their real functional currency - yfinance returns their RAW statement figures
+        # in USD, not auto-converted. Left alone, that silently mixes USD-scale financials with
+        # an IDR stock price everywhere downstream (Max Buy's Graham Number, this very table).
+        # Converted here using a real historical USD/IDR closing rate for that quarter-end - a
+        # genuine unit conversion, not an invented number - so every figure this script writes
+        # is consistently in Rupiah.
+        row["currency"] = "IDR"
+        if financial_currency == "USD":
+            rate = get_usd_idr_rate(column)
+            if rate:
+                for field in MONEY_FIELDS:
+                    if row.get(field) is not None:
+                        row[field] = row[field] * rate
+            else:
+                # No real rate available for this date - leave the USD figures as USD rather
+                # than silently mislabeling them as Rupiah (the original bug).
+                row["currency"] = "USD"
+
         rows.append(row)
     return rows
 

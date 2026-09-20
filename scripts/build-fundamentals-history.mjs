@@ -37,14 +37,23 @@ async function main() {
   const reportsRaw = await readFile(new URL("financial_reports.csv", SCRAPER_DATA_DIR), "utf8");
 
   const nameByTicker = new Map();
+  // PER/PBV/dividend yield are CURRENT valuation snapshots (today's price over trailing
+  // earnings/book/dividends), not something with a meaningful value "as of" an old quarter -
+  // the Python fetcher writes the same current snapshot on every row for a ticker, so any one
+  // row's value is the snapshot; captured once here rather than repeated per quarter.
+  const snapshotByTicker = new Map();
   const byTicker = new Map();
   for (const row of parseCsv(reportsRaw)) {
     if (!PERIOD_ORDER[row.period]) continue;
     if (row.name && !nameByTicker.has(row.ticker)) nameByTicker.set(row.ticker, row.name);
+    if (!snapshotByTicker.has(row.ticker)) {
+      snapshotByTicker.set(row.ticker, { per: toNum(row.per), pbv: toNum(row.pbv), dividend_yield: toNum(row.dividend_yield) });
+    }
     if (!byTicker.has(row.ticker)) byTicker.set(row.ticker, []);
     byTicker.get(row.ticker).push({
       year: Number(row.year),
       period: row.period,
+      currency: row.currency || "IDR",
       total_assets: toNum(row.total_assets),
       current_assets: toNum(row.current_assets),
       total_liabilities: toNum(row.total_liabilities),
@@ -69,6 +78,12 @@ async function main() {
       const bvps = shares > 0 && r.total_equity != null ? r.total_equity / shares : null;
       const currentRatio = r.current_liabilities > 0 && r.current_assets != null ? r.current_assets / r.current_liabilities : null;
       const debtToEquityReal = r.total_equity > 0 && r.total_liabilities != null ? (r.total_liabilities / r.total_equity) * 100 : null;
+      // ROE/ROA/NPM computed per quarter from this same real statement data (not a trailing
+      // snapshot like PER/PBV above) - each quarter's own profitability against its own
+      // balance sheet, consistent with the rest of this per-quarter table.
+      const roe = r.total_equity > 0 && r.net_income != null ? (r.net_income / r.total_equity) * 100 : null;
+      const roa = r.total_assets > 0 && r.net_income != null ? (r.net_income / r.total_assets) * 100 : null;
+      const npm = r.revenue ? (r.net_income / r.revenue) * 100 : null;
       // Same quarter a year earlier - a real YoY comparison, not just "the previous row",
       // which for a ticker with gaps in coverage could be a different quarter entirely. Yahoo
       // only carries ~5-6 quarters at all, so a true year-ago match often simply isn't there.
@@ -81,12 +96,23 @@ async function main() {
         bvps: round2(bvps),
         current_ratio: round2(currentRatio),
         debt_to_equity_real: round2(debtToEquityReal),
+        roe: round2(roe),
+        roa: round2(roa),
+        npm: round2(npm),
         revenue_growth_yoy: round2(revenueGrowthYoy),
         net_income_growth_yoy: round2(netIncomeGrowthYoy),
       };
     });
     totalQuarters += enriched.length;
-    tickers[ticker] = { name: nameByTicker.get(ticker) || null, quarters: enriched, latest: enriched[enriched.length - 1] || null };
+    const snapshot = snapshotByTicker.get(ticker) || {};
+    tickers[ticker] = {
+      name: nameByTicker.get(ticker) || null,
+      per: snapshot.per ?? null,
+      pbv: snapshot.pbv ?? null,
+      dividend_yield: snapshot.dividend_yield ?? null,
+      quarters: enriched,
+      latest: enriched[enriched.length - 1] || null,
+    };
   }
 
   const generatedAt = new Date().toISOString();

@@ -247,9 +247,14 @@ footer .mono{font-size:11px;}
 .fund-hist-controls label{font-size:12.5px; font-weight:600; color:var(--text-2);}
 .fund-hist-controls input[type="text"]{font-family:inherit; font-size:13px; padding:7px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-1); min-width:240px; flex:1 1 240px; max-width:360px;}
 .fund-hist-controls input[type="text"]:focus-visible{outline:2px solid var(--accent); outline-offset:-1px;}
-.fund-ticker-heading{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
+.fund-ticker-heading{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
 .fund-ticker-code{font-family:"IBM Plex Mono",monospace; font-weight:800; font-size:15px; color:var(--accent);}
 .fund-ticker-name{font-size:12.5px; color:var(--text-muted);}
+.fund-snap-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.fund-snap-chip{font-size:11.5px; padding:4px 9px; border-radius:20px; background:var(--surface); color:var(--text-2);}
+.fund-snap-chip b{font-family:"IBM Plex Mono",monospace; color:var(--text-1);}
+.fund-snap-note{font-size:10.5px; color:var(--text-muted); font-style:italic;}
+.fund-usd-flag{font-size:9px; font-weight:800; padding:1px 5px; border-radius:4px; background:var(--warning-soft); color:var(--warning); letter-spacing:0.03em;}
 .fund-table-wrap{overflow-x:auto;}
 .fund-table{width:auto; max-width:100%; border-collapse:collapse; font-size:12px;}
 .fund-table th,.fund-table td{padding:7px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--gridline);}
@@ -414,7 +419,8 @@ footer .mono{font-size:11px;}
 
     <div class="method-block">
       <h3>3. Data Fundamental Historis (baru)</h3>
-      <p>Dikumpulkan dari laporan keuangan resmi tiap emiten via Yahoo Finance lewat scraper Python milik kami sendiri (<span class="mono">scrapers/idx-fundamentals/</span>) - otomatis 2x sebulan (tanggal 8 &amp; 22, mewakili minggu ke-2 &amp; ke-4), plus bisa dipicu manual kapan saja, terpisah dari update harian. Mencakup hingga ~500 saham teraktif, daftarnya ditulis ulang otomatis tiap update harian dari data screener Zapi yang real (bukan daftar statis). Percobaan awal menarik langsung dari arsip XBRL resmi idx.co.id, tapi situsnya diproteksi Cloudflare yang memblokir semua akses otomatis (bahkan dari jaringan rumah biasa) - Yahoo Finance dipakai sebagai gantinya karena datanya real (angka resmi yang sama, sumbernya cuma beda saluran), hanya saja cakupannya terbatas ~5-6 kuartal terakhir (bukan histori multi-tahun). Metrik yang dihitung: EPS, BVPS, current ratio, debt-to-equity riil, free cash flow, serta pertumbuhan revenue &amp; laba bersih year-over-year - semuanya dari angka laporan keuangan asli, bukan estimasi.</p>
+      <p>Dikumpulkan dari laporan keuangan resmi tiap emiten via Yahoo Finance lewat scraper Python milik kami sendiri (<span class="mono">scrapers/idx-fundamentals/</span>) - otomatis 2x sebulan (tanggal 8 &amp; 22, mewakili minggu ke-2 &amp; ke-4), plus bisa dipicu manual kapan saja, terpisah dari update harian. Mencakup hingga ~500 saham teraktif, daftarnya ditulis ulang otomatis tiap update harian dari data screener Zapi yang real (bukan daftar statis). Percobaan awal menarik langsung dari arsip XBRL resmi idx.co.id, tapi situsnya diproteksi Cloudflare yang memblokir semua akses otomatis (bahkan dari jaringan rumah biasa) - Yahoo Finance dipakai sebagai gantinya karena datanya real (angka resmi yang sama, sumbernya cuma beda saluran), hanya saja cakupannya terbatas ~5-6 kuartal terakhir (bukan histori multi-tahun). Metrik per kuartal: EPS, BVPS, ROE, ROA, Net Profit Margin, current ratio, debt-to-equity riil, free cash flow, serta pertumbuhan revenue &amp; laba bersih year-over-year - semuanya dari angka laporan keuangan asli, bukan estimasi. PER, PBV, dan dividend yield ditampilkan terpisah sebagai snapshot valuasi hari ini (bukan per kuartal historis, karena keduanya butuh harga saham saat ini).</p>
+      <p><b>Konversi mata uang:</b> beberapa emiten (kebanyakan tambang/energi, mis. ADRO/INCO/ITMG) melaporkan dalam USD karena itu mata uang fungsionalnya - dikonversi ke Rupiah pakai kurs USD/IDR riil pada tanggal akhir kuartal itu (bukan angka karangan), dan ditandai eksplisit "USD" di tabel kalau kurs riilnya genuinely tidak berhasil didapat. PER/PBV bawaan sumber data sendiri juga difilter pakai rentang kewajaran - angka yang jelas tidak masuk akal (pernah ditemukan PBV terbaca puluhan ribu kali karena masalah mata uang di sisi sumber datanya) di-null-kan, bukan ditampilkan seolah valid.</p>
     </div>
 
     <div class="method-block">
@@ -993,25 +999,38 @@ footer .mono{font-size:11px;}
       body.innerHTML = '<p class="empty-note">Ketik kode saham (mis. BBCA) atau nama perusahaan, lalu pilih dari saran yang muncul.</p>';
       return;
     }
-    var heading = '<div class="fund-ticker-heading"><span class="fund-ticker-code">'+esc(ticker)+'</span>'+(entry.name?'<span class="fund-ticker-name">'+esc(entry.name)+'</span>':"")+'</div>';
+    var snapshotBits = [];
+    if (entry.per!=null) snapshotBits.push('<span class="fund-snap-chip">PER <b>'+entry.per.toFixed(1)+'x</b></span>');
+    if (entry.pbv!=null) snapshotBits.push('<span class="fund-snap-chip">PBV <b>'+entry.pbv.toFixed(2)+'x</b></span>');
+    if (entry.dividend_yield!=null) snapshotBits.push('<span class="fund-snap-chip">Dividend Yield <b>'+entry.dividend_yield.toFixed(2)+'%</b></span>');
+    var snapshotRow = snapshotBits.length ? '<div class="fund-snap-row">'+snapshotBits.join("")+'<span class="fund-snap-note">(rasio valuasi saat ini, bukan per kuartal historis)</span></div>' : "";
+    var heading = '<div class="fund-ticker-heading"><span class="fund-ticker-code">'+esc(ticker)+'</span>'+(entry.name?'<span class="fund-ticker-name">'+esc(entry.name)+'</span>':"")+'</div>'+snapshotRow;
     if (!entry.quarters || !entry.quarters.length){
       body.innerHTML = heading + '<p class="empty-note">Belum ada data kuartal untuk saham ini.</p>';
       return;
     }
     var rows = entry.quarters.slice().reverse().map(function(q){
-      return "<tr><td>"+q.year+" "+esc(q.period)+"</td>"
+      // Almost always IDR (converted from USD at fetch time for issuers like ADRO/INCO/ITMG
+      // that report in USD - see scrapers/idx-fundamentals/fetch_fundamentals.py). "USD" here
+      // only appears in the rare case a real conversion rate genuinely couldn't be fetched -
+      // flagged explicitly rather than ever silently shown as if it were Rupiah.
+      var currencyNote = q.currency==="USD" ? ' <span class="fund-usd-flag" title="Kurs konversi tidak tersedia - angka masih dalam USD asli">USD</span>' : "";
+      return "<tr><td>"+q.year+" "+esc(q.period)+currencyNote+"</td>"
         + "<td>"+rp(q.revenue)+"</td>"
         + '<td class="'+growthClass(q.revenue_growth_yoy)+'">'+fmtPct1(q.revenue_growth_yoy)+"</td>"
         + "<td>"+rp(q.net_income)+"</td>"
         + '<td class="'+growthClass(q.net_income_growth_yoy)+'">'+fmtPct1(q.net_income_growth_yoy)+"</td>"
         + "<td>"+(q.eps!=null?fmtNum(q.eps,true):"&mdash;")+"</td>"
         + "<td>"+(q.bvps!=null?fmtNum(q.bvps,true):"&mdash;")+"</td>"
+        + "<td>"+(q.roe!=null?q.roe.toFixed(1)+"%":"&mdash;")+"</td>"
+        + "<td>"+(q.roa!=null?q.roa.toFixed(1)+"%":"&mdash;")+"</td>"
+        + "<td>"+(q.npm!=null?q.npm.toFixed(1)+"%":"&mdash;")+"</td>"
         + "<td>"+(q.current_ratio!=null?q.current_ratio.toFixed(2):"&mdash;")+"</td>"
         + "<td>"+(q.debt_to_equity_real!=null?q.debt_to_equity_real.toFixed(1)+"%":"&mdash;")+"</td>"
         + "<td>"+rp(q.free_cash_flow)+"</td></tr>";
     }).join("");
     body.innerHTML = heading + '<div class="fund-table-wrap"><table class="fund-table">'
-      + "<thead><tr><th>Periode</th><th>Revenue</th><th>YoY</th><th>Laba Bersih</th><th>YoY</th><th>EPS</th><th>BVPS</th><th>Current Ratio</th><th>DER</th><th>FCF</th></tr></thead>"
+      + "<thead><tr><th>Periode</th><th>Revenue</th><th>YoY</th><th>Laba Bersih</th><th>YoY</th><th>EPS</th><th>BVPS</th><th>ROE</th><th>ROA</th><th>NPM</th><th>Current Ratio</th><th>DER</th><th>FCF</th></tr></thead>"
       + "<tbody>"+rows+"</tbody></table></div>";
   }
 
