@@ -1,19 +1,18 @@
 name: IDX Fundamentals Scraper
 
-# Deliberately separate from daily-update.yml: this pulls real quarterly financial reports
-# straight from IDX's own XBRL filings, which only change once a quarter and take much longer
-# to fetch than the fast daily pipeline - it has no business running every day at 19:00 WIB.
-# Manual trigger any time, plus a low-frequency cron so historical coverage keeps growing
+# Deliberately separate from daily-update.yml: this pulls real quarterly financial statements
+# for the watchlist, which only change once a quarter - it has no business running every day
+# at 19:00 WIB. Manual trigger any time, plus a low-frequency cron so coverage stays current
 # without anyone needing to remember to click "Run workflow".
+#
+# Originally this scraped IDX's own XBRL filings directly, but idx.co.id sits behind a
+# Cloudflare challenge that blocked every request in testing - even from a real home network
+# with cloudscraper solving the JS challenge, it never got past "Just a moment...". Real
+# quarterly financials for .JK tickers are pulled from Yahoo Finance (yfinance) instead - the
+# same underlying reported figures, reachable without fighting a WAF. Trade-off: only the last
+# ~5-6 quarters of history are available (Yahoo's own limit), not a deep multi-year backfill.
 on:
-  workflow_dispatch:
-    inputs:
-      start_year:
-        description: "First year to scrape (IDX interim XBRL only goes back a few years)"
-        default: "2023"
-      end_year:
-        description: "Last year to scrape"
-        default: ""
+  workflow_dispatch: {}
   schedule:
     # 1st of every month, 03:00 UTC (10:00 WIB) - well clear of the daily 19:00 WIB update.
     - cron: "0 3 1 * *"
@@ -24,7 +23,7 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -35,12 +34,9 @@ jobs:
       - name: Install scraper dependencies
         run: pip install -r scrapers/idx-fundamentals/requirements.txt
 
-      - name: Run IDX fundamentals scraper
+      - name: Fetch quarterly financials from Yahoo Finance
         working-directory: scrapers/idx-fundamentals
-        run: |
-          python run.py --data-dir data \
-            --start-year "${{ inputs.start_year || '2023' }}" \
-            ${{ inputs.end_year != '' && format('--end-year {0}', inputs.end_year) || '' }}
+        run: python fetch_fundamentals.py --data-dir data
 
       - uses: actions/setup-node@v4
         with:

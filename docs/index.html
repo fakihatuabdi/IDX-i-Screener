@@ -371,7 +371,7 @@ footer .mono{font-size:11px;}
 
 <div class="wrap" id="viewFundamentals" hidden>
   <section class="panel info" id="panelFundamentalsHistoris">
-    <div class="panel-head"><div><div class="eyebrow">Data Fundamental</div><h2>Fundamental Historis per Saham</h2><div class="panel-sub">Laporan keuangan resmi IDX (XBRL) per kuartal - diperbarui tidak rutin, lihat tab &quot;Status Data Scraper&quot;</div></div></div>
+    <div class="panel-head"><div><div class="eyebrow">Data Fundamental</div><h2>Fundamental Historis per Saham</h2><div class="panel-sub">Laporan keuangan resmi emiten per kuartal (~5-6 kuartal terakhir, via Yahoo Finance) - diperbarui tidak rutin, lihat tab &quot;Status Data Scraper&quot;</div></div></div>
     <div class="fund-hist-controls">
       <label for="fundTickerSelect">Pilih saham</label>
       <select id="fundTickerSelect"></select>
@@ -382,7 +382,7 @@ footer .mono{font-size:11px;}
 
 <div class="wrap" id="viewScraperStatus" hidden>
   <section class="panel info" id="panelScraperStatus">
-    <div class="panel-head"><div><div class="eyebrow">Transparansi Data</div><h2>Status Data Scraper Fundamental</h2><div class="panel-sub">Scraper IDX XBRL kami sendiri (scrapers/idx-fundamentals/) - jalan tidak rutin, terpisah dari update harian jam 19:00 WIB</div></div></div>
+    <div class="panel-head"><div><div class="eyebrow">Transparansi Data</div><h2>Status Data Scraper Fundamental</h2><div class="panel-sub">Scraper Python kami sendiri (scrapers/idx-fundamentals/), narik laporan keuangan resmi emiten via Yahoo Finance - jalan tidak rutin, terpisah dari update harian jam 19:00 WIB</div></div></div>
     <div id="scraperStatusBody"><p class="empty-note">Memuat data&hellip;</p></div>
   </section>
 </div>
@@ -416,7 +416,7 @@ footer .mono{font-size:11px;}
 
     <div class="method-block">
       <h3>3. Data Fundamental Historis (baru)</h3>
-      <p>Dikumpulkan dari laporan keuangan resmi IDX (format XBRL) lewat scraper Python milik kami sendiri (<span class="mono">scrapers/idx-fundamentals/</span>) - dijalankan tidak rutin (manual atau bulanan), terpisah dari update harian. Metrik yang dihitung: EPS, BVPS, current ratio, debt-to-equity riil, free cash flow, serta pertumbuhan revenue &amp; laba bersih year-over-year - semuanya dari angka laporan keuangan asli, bukan estimasi.</p>
+      <p>Dikumpulkan dari laporan keuangan resmi tiap emiten via Yahoo Finance lewat scraper Python milik kami sendiri (<span class="mono">scrapers/idx-fundamentals/</span>) - dijalankan tidak rutin (manual atau bulanan), terpisah dari update harian. Percobaan awal menarik langsung dari arsip XBRL resmi idx.co.id, tapi situsnya diproteksi Cloudflare yang memblokir semua akses otomatis (bahkan dari jaringan rumah biasa) - Yahoo Finance dipakai sebagai gantinya karena datanya real (angka resmi yang sama, sumbernya cuma beda saluran), hanya saja cakupannya terbatas ~5-6 kuartal terakhir (bukan histori multi-tahun). Metrik yang dihitung: EPS, BVPS, current ratio, debt-to-equity riil, free cash flow, serta pertumbuhan revenue &amp; laba bersih year-over-year - semuanya dari angka laporan keuangan asli, bukan estimasi.</p>
     </div>
 
     <div class="method-block">
@@ -937,8 +937,8 @@ footer .mono{font-size:11px;}
   document.getElementById("navScraperStatus").addEventListener("click", function(){ setView("scraperStatus"); });
   document.getElementById("navMethodology").addEventListener("click", function(){ setView("methodology"); });
 
-  // Fundamental Historis: real quarterly figures from the IDX XBRL scraper
-  // (scrapers/idx-fundamentals/) - a separate, occasionally-updated file, never fetched as
+  // Fundamental Historis: real quarterly figures from the fundamentals scraper
+  // (scrapers/idx-fundamentals/, via Yahoo Finance) - a separate, occasionally-updated file, never fetched as
   // part of the fast daily pipeline, so it's fine (and correct) if it's simply missing.
   function rp(v){ return v==null ? "&mdash;" : "Rp"+fmtRp(v); }
   function fmtPct1(v){ return v==null ? "&mdash;" : (v>=0?"+":"")+v+"%"; }

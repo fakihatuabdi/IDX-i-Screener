@@ -2,9 +2,8 @@ node_modules/
 .env
 .env.*
 
-# Raw scraper OUTPUT (XBRL dumps, generated CSVs) - large and rebuildable; only the derived
-# docs/data/fundamentals-*.json gets committed. taxonomy.csv/watchlist.csv in the same folder
-# are committed source config (what to scrape), not generated output, so they're kept.
+# Raw scraper OUTPUT (generated financial_reports.csv) - rebuildable; only the derived
+# docs/data/fundamentals-*.json gets committed. watchlist.csv in the same folder is committed
+# source config (what to fetch), not generated output, so it's kept.
 scrapers/idx-fundamentals/data/*
-!scrapers/idx-fundamentals/data/taxonomy.csv
 !scrapers/idx-fundamentals/data/watchlist.csv

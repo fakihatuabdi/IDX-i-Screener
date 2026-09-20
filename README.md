@@ -82,6 +82,10 @@ Untuk verdict **Sell/Strong Sell dan Hold** (semua strategi), tidak ada Entry/Ma
 
 **Catalyst** (narasi per saham) ditulis Claude dalam bahasa manusia yang natural - dilarang menyalin nama field mentah (`lastClose`, `prior20High`, dst) langsung ke kalimat, harus diterjemahkan ke istilah awam (mis. "resistance 20 hari terakhir"). Kondisi **volume transaksi (RVOL)** wajib disebutkan sebagai salah satu faktor analisis di tiap catalyst - volume di atas rata-rata memperkuat keyakinan sinyal, volume tipis jadi catatan bahwa sinyalnya masih perlu konfirmasi lebih lanjut.
 
+## Data fundamental historis (scraper terpisah)
+
+`scrapers/idx-fundamentals/` (Python, milik sendiri) menarik laporan keuangan kuartalan riil per saham - EPS, BVPS, current ratio, debt-to-equity riil, free cash flow, dan pertumbuhan revenue/laba YoY - dipakai `lib/pipeline.mjs` untuk Max Buy Investment yang lebih akurat. Awalnya didesain menarik langsung dari arsip XBRL resmi idx.co.id, tapi situs itu berada di balik proteksi Cloudflare yang memblokir semua request otomatis (terverifikasi langsung: bahkan `cloudscraper` dari jaringan rumah biasa tetap kena halaman "Just a moment..."). Sumbernya diganti ke **Yahoo Finance** (`yfinance`, dengan suffix `.JK`) - datanya tetap angka laporan keuangan resmi emiten yang sama, hanya saluran pengambilannya berbeda - dengan konsekuensi cakupan histori lebih pendek (~5-6 kuartal terakhir, bukan multi-tahun). Dijalankan tidak rutin lewat `.github/workflows/fundamental-scraper.yml` (manual atau bulanan), terpisah total dari update harian jam 19:00 WIB.
+
 Beberapa faktor di dokumen referensi **sengaja tidak diimplementasikan** karena tidak ada sumber data real yang tersedia lewat Zapi: tren kepemilikan asing/institusi KSEI per kuartal (dipakai proxy kasar dari konsentrasi broker harian, bukan data KSEI asli), analisis makro/sektor top-down, penilaian kualitatif moat/manajemen/tata kelola, dan valuasi intrinsik (DCF). Tidak pernah dikarang - kalau datanya tidak ada, faktornya cuma dilewati.
 
 ## Win rate
