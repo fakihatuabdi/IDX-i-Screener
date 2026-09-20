@@ -434,11 +434,20 @@ footer .mono{font-size:11px;}
       <p>Tidak ada lagi persentase flat dari harga close. Semuanya dihitung dari <b>ATR(14)</b> (volatilitas riil saham itu sendiri, metode Wilder) dan struktur support/resistance riil.</p>
       <ul>
         <li><b>Entry Scalping &amp; Swing</b> (Buy/Strong Buy saja) berupa <b>rentang harga</b>, dipilih dari 4 skenario teknikal: breakout confirmed (harga sudah tutup di atas resistance), anticipatory breakout (buy-stop zone <i>di atas</i> harga sekarang, tepat di level resistance), pullback (dari support riil sampai harga close), atau zona sempit di bawah close kalau tidak ada struktur relevan.</li>
-        <li><b>Max Buy Investment</b> (Buy/Strong Buy saja) adalah harga batas atas dari <b>Fair Value</b> dikurangi <b>margin of safety</b> yang disesuaikan oleh DER, ROE, tren ADX mingguan, volume, konsentrasi broker, corporate action mendatang, dan tren pertumbuhan revenue/laba riil. Sejak 2026-09-20, Fair Value adalah <b>rata-rata Graham Number dan DCF</b> (kalau dua-duanya bisa dihitung, kalau tidak pakai yang tersedia saja):
+        <li><b>Max Buy Investment</b> (Buy/Strong Buy saja) adalah harga batas atas dari <b>Fair Value</b> dikurangi <b>Margin of Safety</b> (persentasenya ditampilkan langsung di kartu, chip "MoS X%"). Sejak 2026-09-20, Fair Value adalah <b>rata-rata Graham Number dan DCF</b> (kalau dua-duanya bisa dihitung, kalau tidak pakai yang tersedia saja):
           <ul>
             <li><b>Graham Number</b>: &radic;(22.5 &times; EPS &times; BVPS) - EPS/BVPS riil dari laporan keuangan hasil scraper kalau tersedia, atau diturunkan dari PER/PBV kalau belum.</li>
             <li><b>DCF (Discounted Cash Flow)</b>: proyeksi 5 tahun dari Free Cash Flow riil (TTM, jumlah 4 kuartal terakhir dari scraper), tumbuh dengan laju pertumbuhan laba bersih riil historis (dibatasi -15%..+20% supaya satu kuartal anomali tidak diekstrapolasi jadi angka ekstrem), didiskon dengan WACC dari struktur modal riil (DER) dikombinasi asumsi cost of equity/cost of debt yang terbuka/bisa dirujuk (bukan data langsung, karena memang tidak ada sumber real-time untuk ini - lihat <code>ROADMAP.md</code>), plus nilai terminal (Gordon Growth, pertumbuhan jangka panjang 3%). Hanya dihitung kalau FCF riil positif; dilewati (bukan dipaksakan) kalau tidak mendukung.</li>
           </ul>
+        </li>
+        <li><b>Margin of Safety</b> (2026-09-20, dirombak agar berbasis literatur resmi, bukan nudge teknikal tak bersumber) - basis <b>30%</b> (Benjamin Graham, <i>The Intelligent Investor</i> Bab 20 - diskon "tidak kurang dari sepertiga" antara harga dan nilai taksiran), disesuaikan naik/turun oleh 4 faktor riil, masing-masing bersumber:
+          <ul>
+            <li><b>Leverage (DER riil)</b> - kriteria neraca defensif Graham: DER&gt;200% +10%, DER&gt;100% +5%, DER&le;50% &minus;3%.</li>
+            <li><b>Profitabilitas vs cost of equity (ROE riil)</b> - kerangka <i>excess return</i> Damodaran (sama dasar dengan ambang ROE di Investment §1a): ROE&ge;20% &minus;5%, ROE&lt;10% +5%.</li>
+            <li><b>Ukuran perusahaan (cap tier riil)</b> - premi risiko small-cap (Fama &amp; French, "The Cross-Section of Expected Stock Returns", 1992 - faktor SMB): Small Cap +5%, Big Cap &minus;3%.</li>
+            <li><b>Prediktabilitas laba (tren revenue/laba riil)</b> - tesis utama Seth Klarman, <i>Margin of Safety</i> (1991): margin dibutuhkan berbanding terbalik dengan prediktabilitas bisnis riil - revenue &amp; laba sama-sama menyusut +5%, sama-sama tumbuh &gt;5% &minus;3%.</li>
+          </ul>
+          Dibatasi 15%-45%. Sinyal teknikal (ADX mingguan, RVOL, konsentrasi broker, corporate action) sengaja <b>tidak lagi</b> dipakai di sini - itu konsep timing/momentum, bukan konsep margin of safety dari literatur value investing.
         </li>
         <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss (Sell = aksi jual sekarang di harga close riil).</li>
         <li><b>Stop Loss</b> di-set sejauh jarak ATR, digeser sedikit melewati support/resistance riil terdekat kalau levelnya lebih ketat dari stop berbasis ATR.</li>
@@ -864,7 +873,10 @@ footer .mono{font-size:11px;}
       // the fundamental-led ceiling (already pricier than our margin-of-safety allows).
       var maxBuyGapPct = s.last_price ? Math.round((s.max_buy-s.last_price)/s.last_price*1000)/10 : null;
       var maxBuyGapHtml = maxBuyGapPct!=null ? '<div class="pct-gap'+(maxBuyGapPct<0?" warn":"")+'">'+(maxBuyGapPct>=0?"+":"")+maxBuyGapPct+'% vs sekarang</div>' : "";
-      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+'</div>';
+      // Real margin-of-safety % actually applied to discount Fair Value into Max Buy - see
+      // computeMarginOfSafety di lib/pipeline.mjs (Metodologi §2 untuk rincian sumbernya).
+      var marginHtml = s.margin_of_safety_pct!=null ? '<div class="pct-gap" title="Margin of Safety - diskon dari Fair Value (rata-rata Graham Number + DCF) ke Max Buy">MoS '+s.margin_of_safety_pct+'%</div>' : "";
+      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+marginHtml+'</div>';
     }
     var target2Html = s.target2!=null ? '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>' : "";
     var priceGridHtml = '<div class="price-grid">'+entryCellHtml

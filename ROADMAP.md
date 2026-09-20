@@ -90,6 +90,18 @@ Keputusan awal (masih berlaku sebagian): DCF butuh asumsi growth rate & discount
 
 Modul Investment `investmentSignals` (matriks Varian B lama) juga diganti dengan `investmentLiteralEntryVerdict` - aturan Entry literal dokumen §4B (SEMUA 6 syarat fundamental TRUE sekaligus DAN harga<70% Fair Value) sebagai perbandingan "Alt" yang lebih setia ke dokumen daripada matriks generik §1 sebelumnya (lihat §3.3).
 
+**Margin of Safety dirombak (2026-09-20, atas permintaan eksplisit user)** - sebelumnya basis 15% dinudge oleh campuran sinyal fundamental DAN teknikal (ADX mingguan, RVOL, konsentrasi broker, corporate action) tanpa sumber literatur spesifik. Sekarang `computeMarginOfSafety` di `lib/pipeline.mjs` murni berbasis literatur value-investing/asset-pricing bernama, ditampilkan langsung di kartu (chip "MoS X%"):
+
+| Faktor | Penyesuaian | Sumber |
+|---|---|---|
+| Basis | 30% | Benjamin Graham, *The Intelligent Investor* Bab 20 - "no less than a third" |
+| Leverage (DER riil) | +10% (DER>200%), +5% (DER>100%), &minus;3% (DER&le;50%) | Kriteria neraca defensif Graham |
+| Profitabilitas (ROE riil) | &minus;5% (ROE&ge;20%), +5% (ROE<10%) | Kerangka *excess return* Damodaran (sama dasar dengan ambang ROE §3.3) |
+| Ukuran perusahaan (cap tier riil) | +5% (Small Cap), &minus;3% (Big Cap) | Premi risiko small-cap - Fama &amp; French (1992), faktor SMB |
+| Prediktabilitas laba (tren revenue/laba riil) | +5% (sama-sama menyusut), &minus;3% (sama-sama tumbuh>5%) | Seth Klarman, *Margin of Safety* (1991) |
+
+Dibatasi 15%-45%. Sinyal teknikal (ADX/RVOL/broker/corporate action) sengaja **dikeluarkan** dari perhitungan ini - itu konsep timing/momentum, bukan konsep margin of safety dari literatur value investing, jadi dipisahkan supaya tiap faktor di sini punya sumber yang bisa dirujuk secara spesifik.
+
 ### 2.3. Logging untuk ML: database eksternal (Supabase)
 
 Berbeda dari pola "JSON di git" yang dipakai selama ini — user memilih database eksternal supaya Fase 2 (backtesting kuantitatif) bisa pakai query SQL sungguhan alih-alih memuat seluruh file JSONL ke memori tiap kali analisis. Ini pertama kalinya proyek ini punya dependency "server-ish" di luar GitHub — trade-off yang disadari dan diterima secara eksplisit oleh user demi kemampuan query yang jauh lebih baik untuk kebutuhan ML jangka panjang. Detail schema & setup di §4.
