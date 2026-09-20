@@ -220,7 +220,7 @@ async function main() {
     }
   }
 
-  const { price_lookup, trade_log_rows, scalping_universe, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
+  const { price_lookup, trade_log_rows, scalping_universe, scalping_universe_names, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
   const output = {
     ok: true,
     ...dashboardForOutput,
@@ -243,7 +243,7 @@ async function main() {
 
   // Real, current 250-most-active-tickers universe for scalping-scan.mjs (ROADMAP.md §3.4) -
   // re-filtered fresh every day from today's real screener, never a static list.
-  await writeFile(SCALPING_WATCHLIST_PATH, JSON.stringify({ generated_at: wibNow.toISOString(), tickers: dashboard.scalping_universe }));
+  await writeFile(SCALPING_WATCHLIST_PATH, JSON.stringify({ generated_at: wibNow.toISOString(), tickers: dashboard.scalping_universe, names: dashboard.scalping_universe_names }));
 
   // IDX's own official data (index-summary / foreign-flow / broker-summary) was down and
   // buildDashboard() fell back to real, honest substitutes - see data_health in the output

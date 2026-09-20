@@ -11,7 +11,7 @@
 // silently going stale to null.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import * as zapi from "../lib/zapi.mjs";
-import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, scalpingLevels, atrDailyBaseline, isAtrElevated } from "../lib/scalping.mjs";
+import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, scalpingLevels, atrDailyBaseline, isAtrElevated, buildCatalyst } from "../lib/scalping.mjs";
 import { insertRows } from "../lib/supabase.mjs";
 
 const OUT_DIR = new URL("../docs/data/", import.meta.url);
@@ -23,9 +23,10 @@ const MULTIQUOTE_BATCH = 20; // Pluang's own per-call cap
 async function loadWatchlist() {
   try {
     const raw = await readFile(WATCHLIST_PATH, "utf8");
-    return JSON.parse(raw).tickers || [];
+    const parsed = JSON.parse(raw);
+    return { tickers: parsed.tickers || [], names: parsed.names || {} };
   } catch {
-    return []; // not written yet (daily pipeline hasn't run since this feature shipped) - nothing to scan today
+    return { tickers: [], names: {} }; // not written yet (daily pipeline hasn't run since this feature shipped) - nothing to scan today
   }
 }
 
@@ -59,7 +60,7 @@ async function withRetry(fn, attempts = 2) {
 }
 
 async function main() {
-  const tickers = await loadWatchlist();
+  const { tickers, names } = await loadWatchlist();
   if (!tickers.length) {
     console.log("No scalping watchlist yet (docs/data/scalping-watchlist.json missing) - nothing to scan.");
     return;
@@ -100,7 +101,12 @@ async function main() {
       let atr5dAvg = prev?.atr5d_avg ?? null;
       let atrBaselineDate = prev?.atr_baseline_date ?? null;
       let atrElevated = prev?.atr_elevated ?? null;
-      let lastBar = null, avgBarVolume = null;
+      // Persisted for display (see the return object below) even on cycles that don't refetch
+      // the chart - lastBar itself (open/close, needed fresh for volBull/volBear's direction
+      // check) is NOT cached, only its real volume number and the MA20 baseline are.
+      let lastBarVolume = prev?.last_bar_volume ?? null;
+      let avgBarVolume = prev?.avg_bar_volume ?? null;
+      let lastBar = null;
 
       // Daily ATR(14) 5-day baseline (Spesifikasi Algorithmic Trading & ML.pdf §1.1, see
       // lib/scalping.mjs atrDailyBaseline) - only needs refreshing once per real trading day,
@@ -124,6 +130,7 @@ async function main() {
             const micro = microIndicators(bars);
             ema3 = micro.ema3; ema5 = micro.ema5; ema9 = micro.ema9; rsi7 = micro.rsi7;
             lastBar = bars[bars.length - 1];
+            lastBarVolume = lastBar.volume;
             // MA_Vol_20 (Buku Putih §2A) - real average of the last 20 prior 5-minute bars
             // (or fewer early in the session, when 20 don't exist yet), not every bar since
             // the open - a genuine moving-average baseline, not a session-long average that
@@ -156,16 +163,20 @@ async function main() {
       });
       const verdict = verdictFromCounts(bull, bear);
       const levels = scalpingLevels(verdict, q.lastPrice);
+      const catalyst = buildCatalyst({ ticker: q.code, verdict, flags, rsi7, bidPercent, atrElevated });
 
       return {
         ticker: q.code,
+        name: names[q.code] || null,
         last_price: q.lastPrice,
         change_pct: Math.round(q.changePct * 100) / 100,
         verdict, bull, bear, flags,
+        catalyst,
         vwap: vwap != null ? Math.round(vwap) : null,
         ema3, ema5, ema9, rsi7,
         bid_percent: bidPercent,
         buy_lots: buyLots, sell_lots: sellLots,
+        last_bar_volume: lastBarVolume, avg_bar_volume: avgBarVolume != null ? Math.round(avgBarVolume) : null,
         // Volatility context (not a bull/bear vote - see lib/scalping.mjs isAtrElevated).
         atr5d_avg: atr5dAvg, atr_baseline_date: atrBaselineDate, atr_elevated: atrElevated,
         chart_updated_at: chartUpdatedAt,
