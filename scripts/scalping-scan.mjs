@@ -11,7 +11,7 @@
 // silently going stale to null.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import * as zapi from "../lib/zapi.mjs";
-import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, scalpingLevels, atrDailyBaseline, isAtrElevated, buildCatalyst } from "../lib/scalping.mjs";
+import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, primaryVerdict, scalpingLevels, atrDailyBaseline, isAtrElevated, buildCatalyst } from "../lib/scalping.mjs";
 import { insertRows } from "../lib/supabase.mjs";
 
 const OUT_DIR = new URL("../docs/data/", import.meta.url);
@@ -161,7 +161,19 @@ async function main() {
       const { bull, bear, flags } = scalpingSignals({
         lastPrice: q.lastPrice, vwap, ema3, ema5, ema9, rsi7, lastBar, avgBarVolume, bidPercent, buyLots, sellLots,
       });
-      const verdict = verdictFromCounts(bull, bear);
+      // Volume Breakout evaluated from the CACHED volume numbers (persist every cycle, not
+      // just chart-refresh cycles - see lastBarVolume/avgBarVolume above) so the Entry rule
+      // below can react every 5 minutes, not just every ~15-minute chart cycle.
+      const volumeBreakoutNow = lastBarVolume != null && avgBarVolume != null && avgBarVolume > 0 && lastBarVolume > avgBarVolume * 1.5;
+      // PRIMARY verdict: Buku Putih §2B's literal Entry AND-rule (see lib/scalping.mjs
+      // primaryVerdict) - the generic 6-signal matrix (verdictFromCounts) is now only
+      // secondary/informational (verdict_b), same "parallel, not authoritative" treatment
+      // already used for Swing/Investment.
+      const { verdict, isAboveVwap } = primaryVerdict({
+        lastPrice: q.lastPrice, vwap, wasAboveVwap: prev?.is_above_vwap ?? null,
+        volumeBreakout: volumeBreakoutNow, buyLots, sellLots, bull, bear,
+      });
+      const verdictB = verdictFromCounts(bull, bear);
       const levels = scalpingLevels(verdict, q.lastPrice);
       const catalyst = buildCatalyst({ ticker: q.code, verdict, flags, rsi7, bidPercent, atrElevated });
 
@@ -171,16 +183,21 @@ async function main() {
         last_price: q.lastPrice,
         change_pct: Math.round(q.changePct * 100) / 100,
         verdict, bull, bear, flags,
+        // Experimental, informational only - see docs/index.html's "Alt" badge pattern for
+        // Swing/Investment. Never used for ranking/Entry/Target/Stop-Loss.
+        verdict_b: verdictB,
         // Within each Buy/Hold/Sell group on the dashboard (docs/index.html's
         // renderGroupedByVerdict sorts by this exact field, same as Swing/Investment) -
         // Strong Buy/Strong Sell (highest conviction) always shown before plain Buy/Sell.
         rank: verdict === "Strong Buy" || verdict === "Strong Sell" ? 1 : verdict === "Buy" || verdict === "Sell" ? 2 : 3,
         catalyst,
         vwap: vwap != null ? Math.round(vwap) : null,
+        is_above_vwap: isAboveVwap,
         ema3, ema5, ema9, rsi7,
         bid_percent: bidPercent,
         buy_lots: buyLots, sell_lots: sellLots,
         last_bar_volume: lastBarVolume, avg_bar_volume: avgBarVolume != null ? Math.round(avgBarVolume) : null,
+        volume_breakout: volumeBreakoutNow,
         // Volatility context (not a bull/bear vote - see lib/scalping.mjs isAtrElevated).
         atr5d_avg: atr5dAvg, atr_baseline_date: atrBaselineDate, atr_elevated: atrElevated,
         chart_updated_at: chartUpdatedAt,

@@ -404,19 +404,19 @@ footer .mono{font-size:11px;}
         <li><b>Swing</b>: SMA20/50 cross, RSI(14), ADX/+DI/-DI, MACD(12,26,9), pola Higher-High/Higher-Low, breakout/breakdown 50 hari, konsentrasi broker. Fundamental 100% tidak dipakai.</li>
         <li><b>Investment</b>: rating teknikal TradingView + rasio fundamental (ROE/PBV/DER/dividend yield/PEG) sebagai faktor terbesar, RSI &amp; ADX <i>mingguan</i>, breakout/breakdown 52 minggu.</li>
       </ul>
-      <p><b>Success Rate %</b> pada kartu Swing/Investment dihitung langsung dari rasio skor konfluensi yang sama (bukan angka terpisah), diskalakan ke rentang 50-90%. Kartu Scalping real-time menampilkan jumlah sinyal bullish/bearish (dari 6) secara transparan, bukan Success Rate.</p>
+      <p><b>Success Rate %</b> pada kartu Swing/Investment dihitung langsung dari rasio skor konfluensi yang sama (bukan angka terpisah), diskalakan ke rentang 50-90%. Kartu Scalping real-time menampilkan jumlah sinyal bullish/bearish (dari 6) sebagai info pembanding (lihat 1b), bukan Success Rate.</p>
     </div>
 
     <div class="method-block">
-      <h3>1b. Scalping Real-Time - Detail Matriks Verdict</h3>
-      <p>Enam sinyal riil independen dihitung tiap siklus scan (VWAP, Micro EMA, RSI(7), Volume Breakout, Order Book, Tape Reading), masing-masing bernilai sama rata (tidak berbobot) - persis metodologi "Skor Konfluensi" referensi:</p>
+      <h3>1b. Scalping Real-Time - Detail Verdict</h3>
+      <p>Verdict resmi Scalping (sejak 2026-09-20, diperbaiki) memakai <b>AND ketat 3 syarat persis Buku Putih §2B</b>, bukan matriks skor konfluensi:</p>
       <ul>
-        <li><b>Strong Buy</b>: sinyal bullish &ge;4 DAN bearish = 0</li>
-        <li><b>Buy</b>: sinyal bullish &ge;3 DAN bearish &le;1</li>
-        <li><b>Strong Sell</b>: sinyal bearish &ge;4 DAN bullish = 0</li>
-        <li><b>Sell</b>: sinyal bearish &ge;3 DAN bullish &le;1</li>
-        <li><b>Hold</b>: kondisi lain (termasuk sinyal bullish = bearish, benar-benar bertentangan)</li>
+        <li><b>Entry (Buy)</b>: harga baru saja menembus ke atas VWAP sesi (dibandingkan siklus scan sebelumnya) <b>DAN</b> Volume Breakout (volume &gt; 1,5x rata-rata 20 bar terakhir) <b>DAN</b> Tape Reading mayoritas beli (lot beli &gt; lot jual)</li>
+        <li><b>Entry (Sell)</b>: kebalikannya (harga menembus ke bawah VWAP, volume breakout, mayoritas tape jual) - perpanjangan simetris kami sendiri karena dokumen referensi cuma mendefinisikan sisi Buy</li>
+        <li><b>Strong Buy/Strong Sell</b> vs Buy/Sell biasa: begitu Entry di atas terpicu, level keyakinannya ditentukan dari jumlah sinyal konfluensi 6-arah (&ge;5 dari 6 = Strong) - dokumen sendiri tidak mendefinisikan tingkatan ini khusus untuk Scalping, jadi dipakai skor sistem yang sama sebagai penentu kekuatan saja, bukan pemicu Entry</li>
+        <li><b>Hold</b>: kondisi Entry di atas belum terpenuhi</li>
       </ul>
+      <p>Matriks skor konfluensi generik (Bullish/Bearish Count sederhana, tanpa bobot, persis Buku Putih §1) tetap dihitung berdampingan sebagai <b>info pembanding</b> ("Alt: [verdict]" di kartu, kalau berbeda dari verdict resmi) - sama seperti kartu Swing/Investment, tidak pernah menggantikan verdict resmi.</p>
       <p>Entry/Target 1/Target 2/Stop Loss modul ini memakai persentase tetap dari harga saat sinyal muncul (+1,5% / +3% / -1,5% untuk Buy, kebalikannya untuk Sell) - beda dari Swing/Investment yang berbasis ATR, karena horizon Scalping jauh lebih pendek dan volatilitas intraday belum tentu terbaca akurat dari ATR harian. <b>Max Buy</b> di kartu Scalping adalah ceiling eksekusi 0,5% di atas harga Entry - batas aman supaya tidak mengejar harga terlalu jauh sebelum siklus scan berikutnya (5 menit lagi).</p>
     </div>
 
@@ -892,11 +892,14 @@ footer .mono{font-size:11px;}
     // chart - this scan never fetches full candle history, only the derived indicator values,
     // so there's real data for the badges/price-grid but none to draw a chart from.
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
+    // Verdict resmi sekarang dari AND ketat 3 syarat Entry (Buku Putih §2B) - matriks 6 sinyal
+    // (verdict_b) cuma info pembanding, sama seperti "Alt" di kartu Swing/Investment.
+    var altVerdictHtml = (s.verdict_b && s.verdict_b!==s.verdict) ? '<span class="indicator-chip" title="Matriks skor konfluensi alternatif (unweighted, eksperimental) - lihat Metodologi">Alt: '+esc(s.verdict_b)+'</span>' : "";
     // Perubahan harga riil hari ini (lastPrice vs previousClose sesi ini, dari Multi Quote) -
     // bukan Success Rate seperti kartu Swing/Investment, karena Scalping tidak menghitung itu.
     var changeHtml = s.change_pct!=null ? '<span class="potential-badge" title="Perubahan harga riil hari ini dibanding penutupan kemarin">'+(s.change_pct>=0?"+":"")+s.change_pct+'% hari ini</span>' : "";
     var badges=[];
-    Object.keys(s.flags||{}).filter(function(k){return s.flags[k];}).forEach(function(k){
+    Object.keys(s.flags||{}).filter(function(k){return s.flags[k] && (k.indexOf("Bull")>=0 || k.indexOf("Bear")>=0);}).forEach(function(k){
       var bull = k.indexOf("Bull")>=0;
       badges.push('<span class="indicator-chip '+(bull?"cross-bull":"cross-bear")+'">'+(SIGNAL_LABELS[k]||k)+'</span>');
     });
@@ -922,7 +925,7 @@ footer .mono{font-size:11px;}
       + '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>'
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>' : "";
     var freshness = s.chart_updated_at ? 'VWAP/EMA/RSI diperbarui '+fmtDateTime(s.chart_updated_at)+' &middot; order book/tape reading tiap siklus (5 menit)' : "";
-    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div>'+(s.name?'<div class="stock-full-name">'+esc(s.name)+'</div>':"")+'</div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+changeHtml+'</div></div>'
+    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div>'+(s.name?'<div class="stock-full-name">'+esc(s.name)+'</div>':"")+'</div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+changeHtml+altVerdictHtml+'</div></div>'
       + badgeRow
       + lastPriceHtml
       + priceGridHtml
