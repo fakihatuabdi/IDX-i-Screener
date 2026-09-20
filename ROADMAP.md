@@ -194,11 +194,12 @@ Konsisten dengan prinsip "tidak pernah mengarang data" — faktor berikut dari d
 - Chart 1-menit/3-menit literal (Pluang cuma expose granularitas 5 menit)
 - DCF sebagai Fair Value utama (lihat §2.2)
 
-## 7. Yang Masih Perlu dari User Sebelum Implementasi Lanjut
+## 7. Status Implementasi (per 2026-09-20)
 
-1. **Buat project Supabase gratis**, tambahkan `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` sebagai GitHub Actions secret (§2.3).
-2. ~~Putuskan trade-off cakupan/cadence Scalping~~ — **selesai**: kuota Zapi di-upgrade ke 200.000 call/bulan (2026-09-20), desain 25 saham/refresh 5 menit dikonfirmasi muat nyaman (§3.4). Yang masih perlu: konfirmasi **daftar 25 tiker** yang mau dipantau (default: saham paling likuid/blue-chip dari volume screener, bisa disesuaikan).
-3. **Approve realignment verdict matrix** (§3.3) — Varian A (minimal) vs Varian B (persis dokumen, diuji paralel dulu) vs tetap seperti sekarang.
+1. ~~Buat project Supabase gratis~~ — **selesai**. Tabel `trade_analysis_log`/`trade_labels` sudah dibuat (RLS aktif), `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` terpasang di GitHub secret. `lib/supabase.mjs` (klien PostgREST), hook insert di `lib/pipeline.mjs`/`scripts/run-pipeline.mjs`, dan `scripts/update-labels.mjs` + `update-labels.yml` (cron 19:30 WIB Senin-Jumat) sudah jalan.
+2. ~~Putuskan trade-off cakupan/cadence Scalping~~ — **selesai**: kuota Zapi di-upgrade ke 200.000 call/bulan, desain dua tingkat 250 saham (screening) + 30 saham (deep scan) dikonfirmasi muat nyaman (§3.4). **Implementasi selesai**: `lib/scalping.mjs` (VWAP/EMA/RSI7/sinyal/matriks verdict/level entry-TP-SL persis rumus Scalping di Buku Putih §2B), `scripts/scalping-scan.mjs`, `.github/workflows/scalping-scan.yml` (cron tiap 5 menit, 09:00-15:50 WIB Senin-Jumat). Verdict matrix modul ini memakai **Varian B** (persis Buku Putih §1, unweighted) sejak awal karena modul baru - tidak mengganggu perilaku live yang sudah ada.
+3. **Approve realignment verdict matrix untuk modul Scalping/Swing/Investment yang LAMA** (§3.3) — masih menunggu keputusan, belum diubah. Modul Scalping baru (poin 2 di atas) sudah memakai matriks Varian B secara independen - ini TIDAK menggantikan `recommendations.scalping` yang lama di dashboard utama, keduanya berjalan berdampingan untuk saat ini (data live tersimpan terpisah di `docs/data/scalping-live.json`).
+4. **Belum dikerjakan**: menampilkan `scalping-live.json` di `docs/index.html` (UI belum diperbarui - data sudah mengalir dan tersimpan, tapi belum ada tampilannya di dashboard). Langkah lanjutan berikutnya.
 
 ## 8. Catatan Otomasi (pertanyaan yang sering muncul)
 

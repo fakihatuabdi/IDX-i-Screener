@@ -1,0 +1,54 @@
+name: Scalping Live Scan
+
+# Real intraday scan, every 5 minutes during trading hours only (ROADMAP.md §3.4) - two-tier
+# design (cheap Multi Quote screen of the full 250-ticker universe, deep order-book/tape-
+# reading scan of the ~30 biggest movers) sized to fit comfortably inside the 200k call/month
+# Zapi quota alongside the existing daily pipeline. Never runs outside 09:00-15:50 WIB
+# (02:00-08:50 UTC) Mon-Fri - IDX doesn't trade outside those hours, so there's nothing real to
+# scan and no point spending quota on it.
+on:
+  schedule:
+    - cron: "*/5 2-8 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run scalping scan
+        run: node scripts/scalping-scan.mjs
+        env:
+          ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Commit updated data
+        if: always()
+        # Same retry-rebase pattern as the other workflows (ROADMAP.md/README "Ketahanan") -
+        # this one runs far more often (every 5 min) so a push race against the other
+        # workflows is more likely, not less, to happen on any given run.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/scalping-live.json
+          git diff --staged --quiet || git commit -m "Scalping scan $(date -u +'%Y-%m-%d %H:%M UTC')"
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            echo "Push rejected (attempt $i/5) - fetching and rebasing before retry"
+            git fetch origin
+            git rebase origin/main
+            sleep $((i * 5))
+          done
+          git push

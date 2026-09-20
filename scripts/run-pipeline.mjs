@@ -11,6 +11,7 @@ const LATEST_PATH = new URL("latest.json", OUT_DIR);
 const TRACK_RECORD_PATH = new URL("track-record.json", OUT_DIR);
 const FUNDAMENTALS_HISTORY_PATH = new URL("fundamentals-history.json", OUT_DIR);
 const FUNDAMENTALS_WATCHLIST_PATH = new URL("../scrapers/idx-fundamentals/data/watchlist.csv", import.meta.url);
+const SCALPING_WATCHLIST_PATH = new URL("scalping-watchlist.json", OUT_DIR);
 const MAX_TRACK_RECORD_ENTRIES = 300; // keep the file bounded; oldest evaluated entries drop off first
 const MAX_PENDING_DAYS = 10; // give up evaluating (mark expired) if a ticker never reappears in the screener
 // Start tracking from the next full trading week, not mid-stream, so the win rate is
@@ -219,7 +220,7 @@ async function main() {
     }
   }
 
-  const { price_lookup, trade_log_rows, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
+  const { price_lookup, trade_log_rows, scalping_universe, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
   const output = {
     ok: true,
     ...dashboardForOutput,
@@ -239,6 +240,10 @@ async function main() {
   // goes stale as tickers get added/delisted/renamed. Real tickers only; never guessed.
   const watchlistTickers = Object.keys(dashboard.price_lookup).sort();
   await writeFile(FUNDAMENTALS_WATCHLIST_PATH, "ticker\n" + watchlistTickers.join("\n") + "\n");
+
+  // Real, current 250-most-active-tickers universe for scalping-scan.mjs (ROADMAP.md §3.4) -
+  // re-filtered fresh every day from today's real screener, never a static list.
+  await writeFile(SCALPING_WATCHLIST_PATH, JSON.stringify({ generated_at: wibNow.toISOString(), tickers: dashboard.scalping_universe }));
 
   // IDX's own official data (index-summary / foreign-flow / broker-summary) was down and
   // buildDashboard() fell back to real, honest substitutes - see data_health in the output
