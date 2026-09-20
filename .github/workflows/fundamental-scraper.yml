@@ -2,8 +2,8 @@ name: IDX Fundamentals Scraper
 
 # Deliberately separate from daily-update.yml: this pulls real quarterly financial statements
 # for the watchlist, which only change once a quarter - it has no business running every day
-# at 19:00 WIB. Manual trigger any time, plus a low-frequency cron so coverage stays current
-# without anyone needing to remember to click "Run workflow".
+# at 19:00 WIB. Manual trigger any time, plus a twice-a-month cron (week 2 and week 4) so
+# coverage stays current without anyone needing to remember to click "Run workflow".
 #
 # Originally this scraped IDX's own XBRL filings directly, but idx.co.id sits behind a
 # Cloudflare challenge that blocked every request in testing - even from a real home network
@@ -14,8 +14,10 @@ name: IDX Fundamentals Scraper
 on:
   workflow_dispatch: {}
   schedule:
-    # 1st of every month, 03:00 UTC (10:00 WIB) - well clear of the daily 19:00 WIB update.
-    - cron: "0 3 1 * *"
+    # Twice a month - the 8th (falls in week 2) and the 22nd (falls in week 4) - at 03:00 UTC
+    # (10:00 WIB), well clear of the daily 19:00 WIB update. Cron has no native "Nth week of
+    # month" concept, so fixed dates that reliably land in those weeks stand in for it.
+    - cron: "0 3 8,22 * *"
 
 permissions:
   contents: write
