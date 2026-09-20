@@ -8,6 +8,7 @@ import { writeWeeklySummary } from "../lib/claude.mjs";
 const OUT_DIR = new URL("../docs/data/", import.meta.url);
 const LATEST_PATH = new URL("latest.json", OUT_DIR);
 const TRACK_RECORD_PATH = new URL("track-record.json", OUT_DIR);
+const FUNDAMENTALS_HISTORY_PATH = new URL("fundamentals-history.json", OUT_DIR);
 const MAX_TRACK_RECORD_ENTRIES = 300; // keep the file bounded; oldest evaluated entries drop off first
 const MAX_PENDING_DAYS = 10; // give up evaluating (mark expired) if a ticker never reappears in the screener
 // Start tracking from the next full trading week, not mid-stream, so the win rate is
@@ -31,6 +32,18 @@ async function loadTrackRecord() {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return []; // no previous file yet - start empty, not an error
+  }
+}
+
+// Written occasionally by the separate fundamental-scraper.yml workflow (real IDX XBRL
+// filings), not by this run - just read here if it exists. Missing entirely just means
+// Investment's Max Buy falls back to its PER/PBV-derived approximation for every ticker.
+async function loadFundamentalsHistory() {
+  try {
+    const raw = await readFile(FUNDAMENTALS_HISTORY_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
   }
 }
 
@@ -162,7 +175,8 @@ async function buildWeeklySummary(trackRecord, wibNow) {
 }
 
 async function main() {
-  const dashboard = await buildDashboard();
+  const fundamentalsHistory = await loadFundamentalsHistory();
+  const dashboard = await buildDashboard({ fundamentalsHistory });
   const wibNow = new Date(Date.now() + 7 * 3600 * 1000);
   const isFridayRun = wibNow.getUTCDay() === 5; // wibNow's UTC getters already reflect WIB wall-clock
 

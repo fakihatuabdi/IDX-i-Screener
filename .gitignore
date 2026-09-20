@@ -1,3 +1,7 @@
 node_modules/
 .env
 .env.*
+
+# Raw scraper working data (XBRL dumps, intermediate CSVs) - large and rebuildable; only the
+# derived docs/data/fundamentals-*.json output gets committed.
+scrapers/idx-fundamentals/data/

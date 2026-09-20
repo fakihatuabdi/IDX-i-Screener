@@ -1,0 +1,61 @@
+name: IDX Fundamentals Scraper
+
+# Deliberately separate from daily-update.yml: this pulls real quarterly financial reports
+# straight from IDX's own XBRL filings, which only change once a quarter and take much longer
+# to fetch than the fast daily pipeline - it has no business running every day at 19:00 WIB.
+# Manual trigger any time, plus a low-frequency cron so historical coverage keeps growing
+# without anyone needing to remember to click "Run workflow".
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "First year to scrape (IDX interim XBRL only goes back a few years)"
+        default: "2023"
+      end_year:
+        description: "Last year to scrape"
+        default: ""
+  schedule:
+    # 1st of every month, 03:00 UTC (10:00 WIB) - well clear of the daily 19:00 WIB update.
+    - cron: "0 3 1 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install scraper dependencies
+        run: pip install -r scrapers/idx-fundamentals/requirements.txt
+
+      - name: Run IDX fundamentals scraper
+        working-directory: scrapers/idx-fundamentals
+        run: |
+          python run.py --data-dir data \
+            --start-year "${{ inputs.start_year || '2023' }}" \
+            ${{ inputs.end_year != '' && format('--end-year {0}', inputs.end_year) || '' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Build fundamentals-history.json for the dashboard
+        run: node scripts/build-fundamentals-history.mjs
+
+      - name: Commit updated fundamentals data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/fundamentals-history.json docs/data/fundamentals-status.json
+          git diff --staged --quiet || git commit -m "Update IDX fundamentals history $(date -u +'%Y-%m-%d')"
+          git push
