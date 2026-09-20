@@ -18,7 +18,7 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 | EPS Growth YoY >= 10% | ✅ Ada (`hist.net_income_growth_yoy`), akan dilengkapi `eps_growth_yoy` murni | |
 | Dividend Yield >= 5% | ✅ Ada (`f.dividend_yield`) | |
 | FCF positif & bertumbuh 3 tahun | ⚠️ Parsial — FCF per kuartal ada (`hist.free_cash_flow`), tapi histori scraper cuma ~5-6 kuartal (batas gratis Yahoo Finance), bukan 3 tahun penuh | Gap jujur, didokumentasikan di README |
-| PEG Ratio <= 1.0 | ❌ Belum ada | **Ditambahkan di roadmap ini (§3.1)** |
+| PEG Ratio <= 1.0 | ✅ **Selesai (2026-09-20)** - data sudah ada sejak §3.1, sekarang benar-benar dipakai untuk scoring: `fundamentalScore` di `lib/pipeline.mjs` menambah skor kalau PEG<1 (murah relatif ke pertumbuhan riilnya), mengurangi kalau PEG>2 | Sebelumnya cuma tampil di tabel Fundamental Historis, belum memengaruhi ranking Investment - sekarang sudah |
 | Fair Value: DCF | ❌ Tidak diimplementasikan sesuai literal dokumen | **Keputusan: tetap Graham Number** (§2.2) |
 | KSEI institutional ownership trend | ❌ Tidak ada sumber data real | Gap permanen, didokumentasikan |
 | Makro/sektor top-down, moat/manajemen kualitatif | ❌ Tidak ada sumber data real | Gap permanen, di luar scope otomatisasi |
@@ -28,10 +28,10 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 | Parameter dokumen | Status | Catatan |
 |---|---|---|
 | SMA20 > SMA50, Higher-High/Higher-Low | ✅ Ada | |
-| RSI(14) 30-40 (mantul oversold) atau tembus 50 | ⚠️ Kode saat ini pakai rentang 45-70 (`rsiConstructive`) | **Diselaraskan ke dokumen baru di §3.2** |
-| MACD(12,26,9) golden cross di bawah 0 | ⚠️ Ada golden cross, syarat "di bawah level 0" belum eksplisit dicek | Ditambahkan di §3.2 |
+| RSI(14) - "area aman beli saat pullback" | ✅ **Selesai (2026-09-20)** - diselaraskan persis ke rentang 40-60 dari Buku Putih §3A (sebelumnya rentang 45-70) | `swingScore` di `lib/pipeline.mjs` |
+| MACD(12,26,9) golden cross di bawah 0 | ⚠️ Ada golden cross, syarat "di bawah level 0" belum eksplisit dicek | Masih gap - belum diimplementasikan |
 | Volume > 1.5x rata-rata 20 hari | ⚠️ Kode pakai ambang 2.0x (RVOL), bukan 1.5x | Dokumen baru bilang breakout perlu >1.5x, ambang lama 2.0x dipertahankan (lebih ketat, mengurangi false breakout) — tidak diubah tanpa alasan kuat |
-| Fibonacci Retracement 0.618/0.5 | ❌ Belum ada | **Ditambahkan di §3.2** |
+| Fibonacci Retracement 0.618/0.5 | ✅ **Selesai (2026-09-20)** - dihitung dari `prior50High`/`prior50Low` riil, bullish kalau harga sedang di zona retracement 50%-61.8% | `swingScore` (`fibZone`) di `lib/pipeline.mjs`, +1 poin bullish, `maxBull` naik dari 11 ke 12 |
 | NBSA (Net Buy/Sell Amount broker) | ✅ Ada, via proxy `broker_buy_concentration` (Pluang top-3 buyer) | Bukan NBSA resmi KSEI, tapi real dan sudah didokumentasikan sebagai proxy |
 
 ### 1.3. Modul Scalping (`scalpingScore`)
