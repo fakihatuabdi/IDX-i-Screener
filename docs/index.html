@@ -243,9 +243,13 @@ details.fund summary::-webkit-details-marker{display:none;} details.fund summary
 footer{margin-top:28px; padding-top:18px; border-top:1px solid var(--border); color:var(--text-muted); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
 footer .mono{font-size:11px;}
 
-.fund-hist-controls{display:flex; align-items:center; gap:10px; margin:4px 0 16px;}
+.fund-hist-controls{display:flex; align-items:center; gap:10px; margin:4px 0 16px; flex-wrap:wrap;}
 .fund-hist-controls label{font-size:12.5px; font-weight:600; color:var(--text-2);}
-.fund-hist-controls select{font-family:inherit; font-size:13px; padding:7px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-1);}
+.fund-hist-controls input[type="text"]{font-family:inherit; font-size:13px; padding:7px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-1); min-width:240px; flex:1 1 240px; max-width:360px;}
+.fund-hist-controls input[type="text"]:focus-visible{outline:2px solid var(--accent); outline-offset:-1px;}
+.fund-ticker-heading{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
+.fund-ticker-code{font-family:"IBM Plex Mono",monospace; font-weight:800; font-size:15px; color:var(--accent);}
+.fund-ticker-name{font-size:12.5px; color:var(--text-muted);}
 .fund-table-wrap{overflow-x:auto;}
 .fund-table{width:auto; max-width:100%; border-collapse:collapse; font-size:12px;}
 .fund-table th,.fund-table td{padding:7px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--gridline);}
@@ -253,7 +257,7 @@ footer .mono{font-size:11px;}
 .fund-table th{color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:9.5px; letter-spacing:0.04em;}
 .fund-table td{font-family:"IBM Plex Mono",monospace;}
 .fund-table td.up{color:var(--good);} .fund-table td.down{color:var(--critical);}
-.status-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:6px;}
+.status-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:6px 0 18px;}
 .status-cell{background:var(--surface); border-radius:8px; padding:12px 14px;}
 .status-cell .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
 .status-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:18px; margin-top:4px;}
@@ -291,7 +295,6 @@ footer .mono{font-size:11px;}
 <nav class="view-nav" role="tablist" aria-label="Bagian dashboard">
   <button type="button" id="navDashboard" class="active">Dashboard</button>
   <button type="button" id="navFundamentals">Fundamental Historis</button>
-  <button type="button" id="navScraperStatus">Status Data Scraper</button>
   <button type="button" id="navMethodology">Metodologi &amp; Skor</button>
 </nav>
 
@@ -371,19 +374,14 @@ footer .mono{font-size:11px;}
 
 <div class="wrap" id="viewFundamentals" hidden>
   <section class="panel info" id="panelFundamentalsHistoris">
-    <div class="panel-head"><div><div class="eyebrow">Data Fundamental</div><h2>Fundamental Historis per Saham</h2><div class="panel-sub">Laporan keuangan resmi emiten per kuartal (~5-6 kuartal terakhir, via Yahoo Finance) - diperbarui tidak rutin, lihat tab &quot;Status Data Scraper&quot;</div></div></div>
+    <div class="panel-head"><div><div class="eyebrow">Data Fundamental</div><h2>Fundamental Historis per Saham</h2><div class="panel-sub">Laporan keuangan resmi emiten per kuartal (~5-6 kuartal terakhir, via Yahoo Finance) - scraper Python kami sendiri (scrapers/idx-fundamentals/), jalan tidak rutin, terpisah dari update harian jam 19:00 WIB</div></div></div>
+    <div id="scraperStatusBody"></div>
     <div class="fund-hist-controls">
-      <label for="fundTickerSelect">Pilih saham</label>
-      <select id="fundTickerSelect"></select>
+      <label for="fundTickerSearch">Cari saham (kode atau nama)</label>
+      <input type="text" id="fundTickerSearch" list="fundTickerList" autocomplete="off" placeholder="mis. BBCA atau Bank Central Asia">
+      <datalist id="fundTickerList"></datalist>
     </div>
     <div id="fundHistBody"><p class="empty-note">Memuat data&hellip;</p></div>
-  </section>
-</div>
-
-<div class="wrap" id="viewScraperStatus" hidden>
-  <section class="panel info" id="panelScraperStatus">
-    <div class="panel-head"><div><div class="eyebrow">Transparansi Data</div><h2>Status Data Scraper Fundamental</h2><div class="panel-sub">Scraper Python kami sendiri (scrapers/idx-fundamentals/), narik laporan keuangan resmi emiten via Yahoo Finance - jalan tidak rutin, terpisah dari update harian jam 19:00 WIB</div></div></div>
-    <div id="scraperStatusBody"><p class="empty-note">Memuat data&hellip;</p></div>
   </section>
 </div>
 
@@ -923,18 +921,16 @@ footer .mono{font-size:11px;}
 
   // Top-level view switcher: the dashboard stays one static page, these just show/hide
   // whole sections client-side - no server, no routing, no page reload.
-  var VIEW_IDS = { dashboard:"viewDashboard", fundamentals:"viewFundamentals", scraperStatus:"viewScraperStatus", methodology:"viewMethodology" };
-  var NAV_IDS = { dashboard:"navDashboard", fundamentals:"navFundamentals", scraperStatus:"navScraperStatus", methodology:"navMethodology" };
+  var VIEW_IDS = { dashboard:"viewDashboard", fundamentals:"viewFundamentals", methodology:"viewMethodology" };
+  var NAV_IDS = { dashboard:"navDashboard", fundamentals:"navFundamentals", methodology:"navMethodology" };
   function setView(view){
     state.view = view;
     Object.keys(VIEW_IDS).forEach(function(key){ document.getElementById(VIEW_IDS[key]).hidden = (key !== view); });
     Object.keys(NAV_IDS).forEach(function(key){ document.getElementById(NAV_IDS[key]).classList.toggle("active", key === view); });
     if (view === "fundamentals") renderFundamentalsView();
-    if (view === "scraperStatus") renderScraperStatusView();
   }
   document.getElementById("navDashboard").addEventListener("click", function(){ setView("dashboard"); });
   document.getElementById("navFundamentals").addEventListener("click", function(){ setView("fundamentals"); });
-  document.getElementById("navScraperStatus").addEventListener("click", function(){ setView("scraperStatus"); });
   document.getElementById("navMethodology").addEventListener("click", function(){ setView("methodology"); });
 
   // Fundamental Historis: real quarterly figures from the fundamentals scraper
@@ -943,28 +939,63 @@ footer .mono{font-size:11px;}
   function rp(v){ return v==null ? "&mdash;" : "Rp"+fmtRp(v); }
   function fmtPct1(v){ return v==null ? "&mdash;" : (v>=0?"+":"")+v+"%"; }
   function growthClass(v){ return v==null ? "" : (v>=0?"up":"down"); }
+  function renderScraperStatus(){
+    var el = document.getElementById("scraperStatusBody");
+    var status = state.scraperStatus;
+    if (!status){
+      el.innerHTML = "";
+      return;
+    }
+    el.innerHTML = '<div class="status-grid">'
+      + '<div class="status-cell"><div class="lbl">Terakhir Diperbarui</div><div class="val">'+fmtDateTime(status.generated_at)+"</div></div>"
+      + '<div class="status-cell"><div class="lbl">Saham Tercakup</div><div class="val tab-nums">'+(status.tickers_covered || 0)+"</div></div>"
+      + '<div class="status-cell"><div class="lbl">Total Data Kuartal</div><div class="val tab-nums">'+(status.total_quarters || 0)+"</div></div>"
+      + "</div>";
+  }
   function renderFundamentalsView(){
-    var select = document.getElementById("fundTickerSelect");
+    renderScraperStatus();
+    var searchInput = document.getElementById("fundTickerSearch");
+    var datalist = document.getElementById("fundTickerList");
     var body = document.getElementById("fundHistBody");
     var fh = state.fundamentals;
     var tickers = fh && fh.tickers ? Object.keys(fh.tickers).sort() : [];
     if (!tickers.length){
-      select.innerHTML = "";
-      body.innerHTML = '<p class="empty-note">Data fundamental historis belum tersedia - scraper belum pernah dijalankan atau belum mencakup saham manapun. Cek tab &quot;Status Data Scraper&quot;.</p>';
+      datalist.innerHTML = "";
+      body.innerHTML = '<p class="empty-note">Data fundamental historis belum tersedia - scraper belum pernah dijalankan atau belum mencakup saham manapun. Jalankan manual lewat tab Actions di GitHub repo (workflow &quot;IDX Fundamentals Scraper&quot;).</p>';
       return;
     }
-    if (select.options.length !== tickers.length){
-      var keep = select.value;
-      select.innerHTML = tickers.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join("");
-      select.value = tickers.indexOf(keep) !== -1 ? keep : tickers[0];
-      select.onchange = function(){ renderFundTable(fh.tickers[select.value]); };
+    // <option value> is what the browser fills the input with on pick - "TICKER Nama Perusahaan"
+    // so typing either the code or the company name both surface a match, and selecting one
+    // gives us a single string to split back into a real ticker below.
+    if (datalist.options.length !== tickers.length){
+      datalist.innerHTML = tickers.map(function(t){
+        var name = fh.tickers[t].name;
+        return '<option value="'+esc(t)+(name?" "+esc(name):"")+'">';
+      }).join("");
     }
-    renderFundTable(fh.tickers[select.value] || fh.tickers[tickers[0]]);
+    function tickerFromInput(raw){
+      var v = (raw||"").trim().toUpperCase();
+      if (fh.tickers[v]) return v;
+      var firstWord = v.split(/\s+/)[0];
+      return fh.tickers[firstWord] ? firstWord : null;
+    }
+    function showFor(raw){
+      var t = tickerFromInput(raw);
+      renderFundTable(t ? fh.tickers[t] : null, t);
+    }
+    if (!searchInput.value) searchInput.value = tickers[0];
+    searchInput.oninput = function(){ showFor(searchInput.value); };
+    showFor(searchInput.value);
   }
-  function renderFundTable(entry){
+  function renderFundTable(entry, ticker){
     var body = document.getElementById("fundHistBody");
-    if (!entry || !entry.quarters || !entry.quarters.length){
-      body.innerHTML = '<p class="empty-note">Belum ada data kuartal untuk saham ini.</p>';
+    if (!entry){
+      body.innerHTML = '<p class="empty-note">Ketik kode saham (mis. BBCA) atau nama perusahaan, lalu pilih dari saran yang muncul.</p>';
+      return;
+    }
+    var heading = '<div class="fund-ticker-heading"><span class="fund-ticker-code">'+esc(ticker)+'</span>'+(entry.name?'<span class="fund-ticker-name">'+esc(entry.name)+'</span>':"")+'</div>';
+    if (!entry.quarters || !entry.quarters.length){
+      body.innerHTML = heading + '<p class="empty-note">Belum ada data kuartal untuk saham ini.</p>';
       return;
     }
     var rows = entry.quarters.slice().reverse().map(function(q){
@@ -979,23 +1010,9 @@ footer .mono{font-size:11px;}
         + "<td>"+(q.debt_to_equity_real!=null?q.debt_to_equity_real.toFixed(1)+"%":"&mdash;")+"</td>"
         + "<td>"+rp(q.free_cash_flow)+"</td></tr>";
     }).join("");
-    body.innerHTML = '<div class="fund-table-wrap"><table class="fund-table">'
+    body.innerHTML = heading + '<div class="fund-table-wrap"><table class="fund-table">'
       + "<thead><tr><th>Periode</th><th>Revenue</th><th>YoY</th><th>Laba Bersih</th><th>YoY</th><th>EPS</th><th>BVPS</th><th>Current Ratio</th><th>DER</th><th>FCF</th></tr></thead>"
       + "<tbody>"+rows+"</tbody></table></div>";
-  }
-
-  function renderScraperStatusView(){
-    var body = document.getElementById("scraperStatusBody");
-    var status = state.scraperStatus;
-    if (!status){
-      body.innerHTML = '<p class="empty-note">Scraper fundamental belum pernah dijalankan. Bisa dipicu manual lewat tab Actions di repo GitHub (workflow &quot;IDX Fundamentals Scraper&quot;) kapan saja - prosesnya sengaja tidak otomatis harian.</p>';
-      return;
-    }
-    body.innerHTML = '<div class="status-grid">'
-      + '<div class="status-cell"><div class="lbl">Terakhir Diperbarui</div><div class="val">'+fmtDateTime(status.generated_at)+"</div></div>"
-      + '<div class="status-cell"><div class="lbl">Saham Tercakup</div><div class="val tab-nums">'+(status.tickers_covered || 0)+"</div></div>"
-      + '<div class="status-cell"><div class="lbl">Total Data Kuartal</div><div class="val tab-nums">'+(status.total_quarters || 0)+"</div></div>"
-      + "</div>";
   }
 
   function load(){
@@ -1023,7 +1040,7 @@ footer .mono{font-size:11px;}
   }).catch(function(){ state.fundamentals = null; });
   fetch("./data/fundamentals-status.json?t=" + Date.now()).then(function(r){ return r.ok ? r.json() : null; }).then(function(json){
     state.scraperStatus = json;
-    if (state.view === "scraperStatus") renderScraperStatusView();
+    if (state.view === "fundamentals") renderScraperStatus();
   }).catch(function(){ state.scraperStatus = null; });
 })();
 </script>

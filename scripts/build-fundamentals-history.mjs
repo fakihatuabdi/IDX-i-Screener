@@ -36,9 +36,11 @@ const PERIOD_ORDER = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
 async function main() {
   const reportsRaw = await readFile(new URL("financial_reports.csv", SCRAPER_DATA_DIR), "utf8");
 
+  const nameByTicker = new Map();
   const byTicker = new Map();
   for (const row of parseCsv(reportsRaw)) {
     if (!PERIOD_ORDER[row.period]) continue;
+    if (row.name && !nameByTicker.has(row.ticker)) nameByTicker.set(row.ticker, row.name);
     if (!byTicker.has(row.ticker)) byTicker.set(row.ticker, []);
     byTicker.get(row.ticker).push({
       year: Number(row.year),
@@ -84,7 +86,7 @@ async function main() {
       };
     });
     totalQuarters += enriched.length;
-    tickers[ticker] = { quarters: enriched, latest: enriched[enriched.length - 1] || null };
+    tickers[ticker] = { name: nameByTicker.get(ticker) || null, quarters: enriched, latest: enriched[enriched.length - 1] || null };
   }
 
   const generatedAt = new Date().toISOString();

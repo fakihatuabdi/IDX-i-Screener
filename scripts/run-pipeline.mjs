@@ -9,6 +9,7 @@ const OUT_DIR = new URL("../docs/data/", import.meta.url);
 const LATEST_PATH = new URL("latest.json", OUT_DIR);
 const TRACK_RECORD_PATH = new URL("track-record.json", OUT_DIR);
 const FUNDAMENTALS_HISTORY_PATH = new URL("fundamentals-history.json", OUT_DIR);
+const FUNDAMENTALS_WATCHLIST_PATH = new URL("../scrapers/idx-fundamentals/data/watchlist.csv", import.meta.url);
 const MAX_TRACK_RECORD_ENTRIES = 300; // keep the file bounded; oldest evaluated entries drop off first
 const MAX_PENDING_DAYS = 10; // give up evaluating (mark expired) if a ticker never reappears in the screener
 // Start tracking from the next full trading week, not mid-stream, so the win rate is
@@ -216,6 +217,13 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   await writeFile(LATEST_PATH, JSON.stringify(output));
   await writeFile(TRACK_RECORD_PATH, JSON.stringify(trackRecord));
+
+  // Keeps the fundamentals scraper's watchlist (scrapers/idx-fundamentals/, a separate Python
+  // job - see fundamental-scraper.yml) in sync with the real, current universe of actively-
+  // traded IHSG tickers this run's screener actually saw - rather than a hand-typed list that
+  // goes stale as tickers get added/delisted/renamed. Real tickers only; never guessed.
+  const watchlistTickers = Object.keys(dashboard.price_lookup).sort();
+  await writeFile(FUNDAMENTALS_WATCHLIST_PATH, "ticker\n" + watchlistTickers.join("\n") + "\n");
 
   // IDX's own official data (index-summary / foreign-flow / broker-summary) was down and
   // buildDashboard() fell back to real, honest substitutes - see data_health in the output

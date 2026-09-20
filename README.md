@@ -63,7 +63,7 @@ Anda bisa lihat riwayat semua run (otomatis maupun manual) di tab **Actions** ka
 Kuota akun (dicek langsung dari header response API): **2.000 call/menit**, **25.000 call/bulan**.
 
 Sekali jalan (baik otomatis maupun manual), pipeline memakai sekitar:
-- Screener 300 saham (1 call) + foreign-flow 4 halaman (4 call) + chart harian IHSG 6 bulan (1 call) + index summary (1 call).
+- Screener 500 saham (1 call) + foreign-flow 4 halaman (4 call) + chart harian IHSG 6 bulan (1 call) + index summary (1 call).
 - Shortlist 20 saham (10 Buy + 5 Hold + 5 Sell), masing-masing: chart harian 300 hari, rating teknikal TradingView, data fundamental, dan broker summary per-saham dari Pluang untuk konsentrasi top-3 buyer (20 x 4 = 80 call).
 - Broker summary top 10 aktif market-wide (1 call, endpoint IDX ini tidak punya dimensi per-saham) + top buy pick asli per broker dari Pluang, discan dari 250 saham paling aktif hari itu (250 call) - murni info pasar, tidak terkait rekomendasi Buy/Sell kita. Berita bursa (1 call), corporate action untuk 10 saham Buy (10 call), dan Fear & Greed Index saham AS + crypto (2 call).
 - Total sekitar 1 + 4 + 1 + 1 + 80 + 1 + 250 + 1 + 10 + 2 = ~351 call/run. Dijalankan ~26x/bulan (tiap hari kecuali Sabtu) = ~9.130 call/bulan — masih menyisakan ruang besar dari kuota 25.000/bulan untuk manual re-run atau retry.

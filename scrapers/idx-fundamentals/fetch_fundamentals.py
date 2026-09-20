@@ -28,7 +28,7 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 REQUEST_DELAY_SECONDS = 1.0
 
 REPORT_FIELDS = [
-    "ticker", "year", "period",
+    "ticker", "name", "year", "period",
     "total_assets", "current_assets", "total_liabilities", "current_liabilities",
     "total_equity", "revenue", "net_income", "operating_cash_flow", "capital_expenditure",
     "free_cash_flow", "outstanding_shares",
@@ -115,12 +115,20 @@ def fetch_ticker(ticker: str) -> list:
     if fin is None or fin.empty:
         return []
 
+    # Real company name for the dashboard's search-by-name - best effort, never blocks the
+    # actual financial data if it's unavailable for some reason.
+    try:
+        name = info.info.get("longName") or info.info.get("shortName") or ""
+        name = name.replace(",", "")  # the CSV writer below is a plain comma-separated file, not quoted
+    except Exception:
+        name = ""
+
     rows = []
     for column in fin.columns:
         period = PERIOD_BY_MONTH.get(column.month)
         if period is None:
             continue
-        row = {"ticker": ticker, "year": column.year, "period": period}
+        row = {"ticker": ticker, "name": name, "year": column.year, "period": period}
         for concept in ("revenue", "net_income"):
             row[concept] = resolve(fin, column, concept)
         for concept in ("total_assets", "current_assets", "total_liabilities", "current_liabilities", "total_equity", "outstanding_shares"):
