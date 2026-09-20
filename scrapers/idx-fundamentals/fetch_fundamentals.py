@@ -17,7 +17,6 @@ import logging
 import math
 import os
 import time
-from datetime import timedelta
 from pathlib import Path
 
 import yfinance as yf
@@ -34,14 +33,6 @@ REPORT_FIELDS = [
     "total_equity", "revenue", "net_income", "operating_cash_flow", "capital_expenditure",
     "free_cash_flow", "outstanding_shares",
     "per", "pbv", "dividend_yield",
-]
-
-# Monetary fields only - outstanding_shares is a pure share count and must never be scaled by
-# an FX rate, and per/pbv/dividend_yield are already unitless ratios/percentages.
-MONEY_FIELDS = [
-    "total_assets", "current_assets", "total_liabilities", "current_liabilities",
-    "total_equity", "revenue", "net_income", "operating_cash_flow", "capital_expenditure",
-    "free_cash_flow",
 ]
 
 # yfinance's line-item names vary by company/sector (a bank's balance sheet has no "Current
@@ -63,29 +54,6 @@ FIELD_CANDIDATES = {
 }
 
 PERIOD_BY_MONTH = {3: "Q1", 6: "Q2", 9: "Q3", 12: "Q4"}
-
-_FX_RATE_CACHE = {}
-
-
-def get_usd_idr_rate(as_of):
-    """Real USD/IDR closing rate as of a given quarter-end date, from Yahoo's own FX data -
-    cached per date since the same quarter-end repeats across every USD-reporting ticker.
-    Returns None (never a guess) if the real rate genuinely can't be fetched."""
-    key = as_of.date()
-    if key in _FX_RATE_CACHE:
-        return _FX_RATE_CACHE[key]
-    rate = None
-    try:
-        hist = yf.Ticker("USDIDR=X").history(
-            start=(as_of - timedelta(days=10)).strftime("%Y-%m-%d"),
-            end=(as_of + timedelta(days=1)).strftime("%Y-%m-%d"),
-        )
-        if not hist.empty:
-            rate = float(hist["Close"].iloc[-1])
-    except Exception:
-        logger.exception("Failed to fetch USD/IDR rate for %s", key)
-    _FX_RATE_CACHE[key] = rate
-    return rate
 
 
 def load_watchlist(path: Path) -> list:
@@ -199,23 +167,11 @@ def fetch_ticker(ticker: str) -> list:
 
         # Some IDX issuers (mostly mining/energy, e.g. ADRO/INCO/ITMG) report in USD because
         # that's their real functional currency - yfinance returns their RAW statement figures
-        # in USD, not auto-converted. Left alone, that silently mixes USD-scale financials with
-        # an IDR stock price everywhere downstream (Max Buy's Graham Number, this very table).
-        # Converted here using a real historical USD/IDR closing rate for that quarter-end - a
-        # genuine unit conversion, not an invented number - so every figure this script writes
-        # is consistently in Rupiah.
-        row["currency"] = "IDR"
-        if financial_currency == "USD":
-            rate = get_usd_idr_rate(column)
-            if rate:
-                for field in MONEY_FIELDS:
-                    if row.get(field) is not None:
-                        row[field] = row[field] * rate
-            else:
-                # No real rate available for this date - leave the USD figures as USD rather
-                # than silently mislabeling them as Rupiah (the original bug).
-                row["currency"] = "USD"
-
+        # in USD, left AS-IS here rather than converted to Rupiah. This is the company's own
+        # real reported currency, not an error - the `currency` field says which one so every
+        # consumer downstream (this table, lib/pipeline.mjs's Max Buy calc) can label and
+        # handle it correctly instead of assuming Rupiah for everyone.
+        row["currency"] = financial_currency or "IDR"
         rows.append(row)
     return rows
 
