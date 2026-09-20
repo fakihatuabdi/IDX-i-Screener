@@ -165,7 +165,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    taxonomy = load_taxonomy(Path(__file__).resolve().parent / "taxonomy.csv")
+    taxonomy = load_taxonomy(args.data_dir / "taxonomy.csv")
     emitens = load_emitens(args.data_dir / "emitens.csv")
     reports = load_reports(args.data_dir / "financial_reports.csv")
     logger.info("Parsing XBRL for %d issuers (%s-%s)", len(emitens), args.start_year, args.end_year)
