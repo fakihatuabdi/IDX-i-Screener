@@ -94,7 +94,16 @@ Sesuai rekomendasi di bawah: **Varian B** (matriks generik Buku Putih §1, `Bull
 
 Verdict resmi (yang menentukan rekomendasi Buy/Sell yang ditampilkan) **tidak diganti** - tetap skor berbobot yang sudah ada. Rencana selanjutnya: setelah cukup data `trade_labels` terkumpul (Fase 2, §4), bandingkan win-rate kedua metode dari data real, baru putuskan apakah salah satunya layak menggantikan verdict resmi - bukan diputuskan sekarang berdasarkan mana yang "kedengarannya lebih benar".
 
-Catatan jujur: 6 gerbang `investmentSignals` untuk sisi bullish persis tabel dokumen, tapi ambang bearish-nya (mis. DER>200%, PER>25, PBV>3, PEG>2) adalah **interpretasi yang wajar, bukan kutipan literal dokumen** - Buku Putih §4A hanya mendefinisikan sisi bullish tiap metrik (dokumen ini tidak punya tabel bearish simetris untuk Investment seperti yang dimiliki Scalping/Swing), jadi ambang bearish diselaraskan dengan real threshold yang memang disebut di bagian Stop Loss dokumen (DER>2.0, EPS_Growth_YoY<0) untuk yang tersedia, sisanya estimasi wajar.
+**Ambang bearish `investmentSignals` (2026-09-20, diperkuat atas permintaan user)** - 6 gerbang bullish persis tabel Buku Putih §4A; dokumen ini tidak punya tabel bearish simetris untuk Investment (beda dari Scalping/Swing yang punya keduanya), jadi tiap ambang bearish sekarang dijangkarkan ke satu sumber literatur/metodologi investasi nyata secara eksplisit, bukan tebakan/estimasi kasar lagi:
+
+| Metrik | Ambang Bearish | Sumber |
+|---|---|---|
+| ROE | < 10% | Damodaran (NYU Stern) - kerangka *excess return*: nilai perusahaan cuma tercipta kalau ROE > cost of equity; ~10% mendekati estimasi cost of equity pasar Indonesia (BI rate + premi risiko ekuitas dari tabel country risk premium Damodaran) |
+| DER | > 2,0x (200%), kecuali bank | Angka persis dari Stop Loss Investment di dokumen referensi sendiri ("Spesifikasi Algorithmic Trading & ML.pdf" §2); juga ambang leverage tinggi yang umum di literatur corporate finance (mis. Brealey/Myers/Allen). Bank dikecualikan - persis alasan Benjamin Graham (*The Intelligent Investor*) kenapa institusi keuangan tidak sebanding dengan industrial di rasio ini (dan persis catatan "(Kecuali Bank)" di tabel dokumen) |
+| PER x PBV | > 22,5 | Kombinasi rumus klasik Graham (PER<=15 DAN PBV<=1,5, dikalikan = 22,5) - konstanta yang SAMA dipakai Graham Number (`computeInvestmentLevels`) di file ini - saham sudah berada di atas fair value Graham-nya sendiri, bukan angka baru yang diciptakan terpisah |
+| EPS Growth YoY | < 0 selama 2 kuartal berturut-turut | Persis kutipan literal Stop Loss Investment di dokumen referensi ("EPS_Growth_YoY < 0 for 2 Quarters") - sekarang benar-benar dicek 2 kuartal riil (`prev_eps_growth_yoy`), bukan cuma kuartal terakhir |
+| PEG | > 2 | Perluasan umum dari metodologi PEG Peter Lynch (*One Up On Wall Street*, 1989) - PEG=1 baseline fair value Lynch, PEG>2 ambang "jelas mahal" yang umum dipakai praktisi |
+| Dividend Yield | Sengaja tanpa ambang bearish | Kriteria defensive investor Graham memperlakukan riwayat dividen sebagai penanda kualitas, bukan gerbang wajib - yield rendah/nol normal untuk saham growth. Sinyal bearish yang benar-benar didukung literatur adalah **pemotongan dividen** (bukan level yield), yang butuh histori dividen per-kuartal yang belum dilacak pipeline ini - jujur dilewati daripada didekati asal-asalan |
 
 ### 3.4. Modul Scalping: desain konkret + trade-off kuota (perlu keputusan user)
 
