@@ -171,6 +171,10 @@ async function main() {
         last_price: q.lastPrice,
         change_pct: Math.round(q.changePct * 100) / 100,
         verdict, bull, bear, flags,
+        // Within each Buy/Hold/Sell group on the dashboard (docs/index.html's
+        // renderGroupedByVerdict sorts by this exact field, same as Swing/Investment) -
+        // Strong Buy/Strong Sell (highest conviction) always shown before plain Buy/Sell.
+        rank: verdict === "Strong Buy" || verdict === "Strong Sell" ? 1 : verdict === "Buy" || verdict === "Sell" ? 2 : 3,
         catalyst,
         vwap: vwap != null ? Math.round(vwap) : null,
         ema3, ema5, ema9, rsi7,
