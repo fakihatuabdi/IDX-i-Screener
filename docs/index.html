@@ -879,33 +879,41 @@ footer .mono{font-size:11px;}
     tapeBull:"Tape Reading: HAKA", tapeBear:"Tape Reading: Hajar Kiri"
   };
   function scalpingLiveCard(s){
+    // Same visual language as stockCard (badge-row, price-grid, last-price-row) minus the
+    // chart - this scan never fetches full candle history, only the derived indicator values,
+    // so there's real data for the badges/price-grid but none to draw a chart from.
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
-    var changeHtml = s.change_pct!=null ? '<span class="potential-badge">'+(s.change_pct>=0?"+":"")+s.change_pct+'%</span>' : "";
-    var signalChips = Object.keys(s.flags||{}).filter(function(k){return s.flags[k];}).map(function(k){
+    var changeHtml = s.change_pct!=null ? '<span class="potential-badge">'+(s.change_pct>=0?"+":"")+s.change_pct+'% hari ini</span>' : "";
+    var badges=[];
+    Object.keys(s.flags||{}).filter(function(k){return s.flags[k];}).forEach(function(k){
       var bull = k.indexOf("Bull")>=0;
-      return '<span class="indicator-chip '+(bull?"cross-bull":"cross-bear")+'">'+(SIGNAL_LABELS[k]||k)+'</span>';
-    }).join("");
-    var badgeRow = '<div class="badge-row">'
-      + (s.rsi7!=null?'<span class="indicator-chip">RSI(7) '+s.rsi7+'</span>':"")
-      + (s.vwap!=null?'<span class="indicator-chip">VWAP Rp'+fmtNum(s.vwap)+'</span>':"")
-      + (s.bid_percent!=null?'<span class="indicator-chip">Bid '+s.bid_percent+'% / Ask '+(100-s.bid_percent)+'%</span>':"")
-      + (s.buy_lots!=null && s.sell_lots!=null ?'<span class="indicator-chip">Tape Beli '+fmtNum(s.buy_lots)+' lot / Jual '+fmtNum(s.sell_lots)+' lot</span>':"")
-      + '</div>';
+      badges.push('<span class="indicator-chip '+(bull?"cross-bull":"cross-bear")+'">'+(SIGNAL_LABELS[k]||k)+'</span>');
+    });
+    if (s.rsi7!=null) badges.push('<span class="indicator-chip">RSI(7) '+s.rsi7+'</span>');
+    if (s.vwap!=null) badges.push('<span class="indicator-chip">VWAP Rp'+fmtNum(s.vwap)+'</span>');
+    if (s.bid_percent!=null) badges.push('<span class="indicator-chip">Bid '+s.bid_percent+'% / Ask '+(100-s.bid_percent)+'%</span>');
+    if (s.buy_lots!=null && s.sell_lots!=null) badges.push('<span class="indicator-chip">Tape Beli '+fmtNum(s.buy_lots)+' / Jual '+fmtNum(s.sell_lots)+' lot</span>');
+    var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
-    var hasLevels = s.entry!=null;
-    var priceGridHtml = hasLevels ? '<div class="price-grid">'
-      + '<div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div>'
+    // Max Buy: real execution-slippage ceiling above the scanned entry price (see
+    // lib/scalping.mjs scalpingLevels) - "range yang aman" is Entry..Max Buy, don't chase
+    // above it or the setup's reward:risk no longer holds.
+    var hasEntry = s.entry!=null;
+    var entryCellHtml = hasEntry
+      ? '<div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div>'
+        + (s.max_buy!=null ? '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div><div class="pct-gap">jangan kejar di atas ini</div></div>' : "")
+      : "";
+    var priceGridHtml = hasEntry ? '<div class="price-grid">'+entryCellHtml
       + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div></div>'
       + '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>'
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>' : "";
-    var freshness = s.chart_updated_at ? '<div class="source-tag">VWAP/EMA/RSI diperbarui '+fmtDateTime(s.chart_updated_at)+' &middot; order book/tape reading tiap siklus (5 menit)</div>' : "";
+    var freshness = s.chart_updated_at ? 'VWAP/EMA/RSI diperbarui '+fmtDateTime(s.chart_updated_at)+' &middot; order book/tape reading tiap siklus (5 menit)' : "";
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+changeHtml+'</div></div>'
-      + '<div class="badge-row">'+signalChips+'</div>'
       + badgeRow
       + lastPriceHtml
       + priceGridHtml
       + '<div class="tech-line">Sinyal bullish '+s.bull+'/6, bearish '+s.bear+'/6 - fundamental 100% tidak dipakai (murni teknikal intraday).</div>'
-      + freshness
+      + '<div class="catalyst"><span class="source-tag">'+freshness+'</span></div>'
       + '</article>';
   }
   function renderRecs(d){
