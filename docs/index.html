@@ -417,7 +417,12 @@ footer .mono{font-size:11px;}
         <li><b>Sell</b>: sinyal bearish &ge;3 DAN bullish &le;1</li>
         <li><b>Hold</b>: kondisi lain (termasuk sinyal bullish = bearish, benar-benar bertentangan)</li>
       </ul>
-      <p>Entry/Target 1/Target 2/Stop Loss modul ini memakai persentase tetap dari harga saat sinyal muncul (+1,5% / +3% / -1,5% untuk Buy, kebalikannya untuk Sell) - beda dari Swing/Investment yang berbasis ATR, karena horizon Scalping jauh lebih pendek dan volatilitas intraday belum tentu terbaca akurat dari ATR harian.</p>
+      <p>Entry/Target 1/Target 2/Stop Loss modul ini memakai persentase tetap dari harga saat sinyal muncul (+1,5% / +3% / -1,5% untuk Buy, kebalikannya untuk Sell) - beda dari Swing/Investment yang berbasis ATR, karena horizon Scalping jauh lebih pendek dan volatilitas intraday belum tentu terbaca akurat dari ATR harian. <b>Max Buy</b> di kartu Scalping adalah ceiling eksekusi 0,5% di atas harga Entry - batas aman supaya tidak mengejar harga terlalu jauh sebelum siklus scan berikutnya (5 menit lagi).</p>
+    </div>
+
+    <div class="method-block">
+      <h3>1c. Label "Alt" di Kartu Swing/Investment</h3>
+      <p>Sejak 2026-09-20, kartu Swing dan Investment kadang menampilkan chip kecil <b>"Alt: [verdict]"</b> di pojok kanan atas. Ini adalah hasil matriks verdict alternatif (persis rumus generik Buku Putih §1 di atas - hitung sinyal sederhana, bukan skor berbobot) yang dihitung <b>berdampingan</b> dengan verdict resmi, khusus untuk dibandingkan datanya seiring waktu - <b>tidak pernah dipakai</b> untuk menentukan ranking, Entry, Target, Stop Loss, atau Max Buy. Chip ini hanya muncul kalau kedua metode benar-benar berbeda hasil. Rencananya, setelah cukup data hasil riil terkumpul (fase Backtesting Kuantitatif, lihat <code>ROADMAP.md</code>), baru diputuskan apakah salah satu metode ini lebih akurat dan layak menggantikan verdict resmi.</p>
     </div>
 
     <div class="method-block">
@@ -810,6 +815,10 @@ footer .mono{font-size:11px;}
     if (ma.crossLabel) badges.push('<span class="indicator-chip '+(ma.crossLabel.bullish?"cross-bull":"cross-bear")+'">'+esc(ma.crossLabel.text)+'</span>');
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
+    // Experimental parallel verdict matrix (ROADMAP.md §3.3) - only shown when it actually
+    // disagrees with the real verdict above, purely informational, never affects ranking or
+    // what's recommended.
+    var altVerdictHtml = (s.verdict_b && s.verdict_b!==s.verdict) ? '<span class="indicator-chip" title="Matriks skor konfluensi alternatif (unweighted, eksperimental) - lihat Metodologi">Alt: '+esc(s.verdict_b)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Success Rate ~'+s.potential_pct+'%</span>' : "";
     // Entry is only a thing for Buy/Strong Buy. Scalping/Swing get a real accumulation ZONE
     // (entry_low..entry_high, can sit above today's close for a breakout call). Investment
@@ -845,7 +854,7 @@ footer .mono{font-size:11px;}
       + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+gainPctHtml+'</div>'
       + target2Html
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
-    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+'</div></div>'
+    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+altVerdictHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
       + lastPriceHtml
       + priceGridHtml

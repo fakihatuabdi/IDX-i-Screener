@@ -29,7 +29,7 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 |---|---|---|
 | SMA20 > SMA50, Higher-High/Higher-Low | ✅ Ada | |
 | RSI(14) - "area aman beli saat pullback" | ✅ **Selesai (2026-09-20)** - diselaraskan persis ke rentang 40-60 dari Buku Putih §3A (sebelumnya rentang 45-70) | `swingScore` di `lib/pipeline.mjs` |
-| MACD(12,26,9) golden cross di bawah 0 | ⚠️ Ada golden cross, syarat "di bawah level 0" belum eksplisit dicek | Masih gap - belum diimplementasikan |
+| MACD(12,26,9) golden cross di bawah 0 | ✅ **Selesai (2026-09-20)** - ditambahkan sebagai bonus +1 poin (`macdEarlyBull`) di atas golden cross biasa, bukan menggantikannya (supaya sinyal golden cross lama tidak jadi lebih jarang menyala dari sebelumnya) | `swingScore`, `maxBull` naik dari 12 ke 13 |
 | Volume > 1.5x rata-rata 20 hari | ⚠️ Kode pakai ambang 2.0x (RVOL), bukan 1.5x | Dokumen baru bilang breakout perlu >1.5x, ambang lama 2.0x dipertahankan (lebih ketat, mengurangi false breakout) — tidak diubah tanpa alasan kuat |
 | Fibonacci Retracement 0.618/0.5 | ✅ **Selesai (2026-09-20)** - dihitung dari `prior50High`/`prior50Low` riil, bullish kalau harga sedang di zona retracement 50%-61.8% | `swingScore` (`fibZone`) di `lib/pipeline.mjs`, +1 poin bullish, `maxBull` naik dari 11 ke 12 |
 | NBSA (Net Buy/Sell Amount broker) | ✅ Ada, via proxy `broker_buy_concentration` (Pluang top-3 buyer) | Bukan NBSA resmi KSEI, tapi real dan sudah didokumentasikan sebagai proxy |
@@ -88,13 +88,13 @@ Berbeda dari pola "JSON di git" yang dipakai selama ini — user memilih databas
 - Fibonacci 0.618/0.5 dihitung dari real swing high/low 50 hari (`prior50High`/`prior50Low`, sudah ada) — level klasik, bukan indikator baru yang perlu API tambahan.
 - RSI(14) diselaraskan ke rentang dokumen baru (30-40 mantul, atau tembus 50) — ini mengubah kapan sinyal `rsiConstructive` menyala, sehingga **perlu direview bareng perubahan verdict matrix di §3.3** supaya tidak dua kali mengubah perilaku live secara terpisah.
 
-### 3.3. Realignment Verdict Matrix (perlu approval eksplisit sebelum di-deploy)
+### 3.3. Realignment Verdict Matrix — ✅ Varian B diimplementasikan berdampingan (2026-09-20)
 
-Opsi konkret: pertahankan struktur bullish/bearish count yang sudah ada, tapi tawarkan dua varian untuk dipilih:
-- **Varian A (minimal)**: pertahankan bobot yang ada, hanya samakan label ambang (Strong Buy/Buy/Sell/Strong Sell/Hold) supaya konsisten lintas modul.
-- **Varian B (ikuti dokumen persis)**: semua sinyal bernilai +1 rata (tanpa bobot 2), pakai matriks `Bullish>=4&Bearish==0` dst. persis seperti Buku Putih. Ini akan mengubah komposisi Buy/Sell yang tampil di dashboard — perlu dites dengan data riil (bandingkan hasil lama vs baru di beberapa hari perdagangan) sebelum dianggap final.
+Sesuai rekomendasi di bawah: **Varian B** (matriks generik Buku Putih §1, `Bullish>=4 & Bearish==0` dst., unweighted) dihitung **berdampingan** dengan verdict resmi (weighted, tidak berubah) untuk Swing (`swingScore` yang sudah ada, dipetakan lewat `verdictFromCounts`) dan Investment (`investmentSignals` baru - 6 gerbang fundamental persis Buku Putih §4A: ROE, DER kecuali bank, PER&PBV, EPS Growth, Dividend Yield, PEG). Diekspos sebagai `verdict_b` di tiap item rekomendasi, ditampilkan sebagai chip kecil **"Alt: [verdict]"** di kartu HANYA kalau berbeda dari verdict resmi - tidak pernah memengaruhi ranking/Entry/Target/Stop Loss/Max Buy.
 
-**Rekomendasi:** jalankan Varian B secara paralel (dihitung tapi tidak dipakai sebagai verdict resmi) selama 2-4 minggu, log kedua hasil ke `trade_analysis_log` (§4), baru putuskan mana yang dipakai berdasarkan data real, bukan tebakan mana yang "kedengarannya lebih benar".
+Verdict resmi (yang menentukan rekomendasi Buy/Sell yang ditampilkan) **tidak diganti** - tetap skor berbobot yang sudah ada. Rencana selanjutnya: setelah cukup data `trade_labels` terkumpul (Fase 2, §4), bandingkan win-rate kedua metode dari data real, baru putuskan apakah salah satunya layak menggantikan verdict resmi - bukan diputuskan sekarang berdasarkan mana yang "kedengarannya lebih benar".
+
+Catatan jujur: 6 gerbang `investmentSignals` untuk sisi bullish persis tabel dokumen, tapi ambang bearish-nya (mis. DER>200%, PER>25, PBV>3, PEG>2) adalah **interpretasi yang wajar, bukan kutipan literal dokumen** - Buku Putih §4A hanya mendefinisikan sisi bullish tiap metrik (dokumen ini tidak punya tabel bearish simetris untuk Investment seperti yang dimiliki Scalping/Swing), jadi ambang bearish diselaraskan dengan real threshold yang memang disebut di bagian Stop Loss dokumen (DER>2.0, EPS_Growth_YoY<0) untuk yang tersedia, sisanya estimasi wajar.
 
 ### 3.4. Modul Scalping: desain konkret + trade-off kuota (perlu keputusan user)
 
