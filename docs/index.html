@@ -902,6 +902,7 @@ footer .mono{font-size:11px;}
     if (s.vwap!=null) badges.push('<span class="indicator-chip">VWAP Rp'+fmtNum(s.vwap)+'</span>');
     if (s.bid_percent!=null) badges.push('<span class="indicator-chip">Bid '+s.bid_percent+'% / Ask '+(100-s.bid_percent)+'%</span>');
     if (s.buy_lots!=null && s.sell_lots!=null) badges.push('<span class="indicator-chip">Tape Beli '+fmtNum(s.buy_lots)+' / Jual '+fmtNum(s.sell_lots)+' lot</span>');
+    if (s.atr_elevated!=null) badges.push('<span class="indicator-chip" title="Range hari ini vs rata-rata ATR harian 5 hari - konfirmasi kondisi volatil, bukan sinyal arah">Volatilitas '+(s.atr_elevated?"Tinggi":"Normal")+'</span>');
     var badgeRow = badges.length ? '<div class="badge-row">'+badges.join("")+'</div>' : "";
     var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
     // Max Buy: real execution-slippage ceiling above the scanned entry price (see

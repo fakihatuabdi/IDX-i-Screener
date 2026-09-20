@@ -11,7 +11,7 @@
 // silently going stale to null.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import * as zapi from "../lib/zapi.mjs";
-import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, scalpingLevels } from "../lib/scalping.mjs";
+import { sessionVwap, microIndicators, scalpingSignals, verdictFromCounts, scalpingLevels, atrDailyBaseline, isAtrElevated } from "../lib/scalping.mjs";
 import { insertRows } from "../lib/supabase.mjs";
 
 const OUT_DIR = new URL("../docs/data/", import.meta.url);
@@ -66,6 +66,7 @@ async function main() {
   }
   const previous = await loadPrevious();
   const isChartCycle = new Date().getUTCMinutes() % 15 === 0;
+  const todayWib = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
   // WIB wall-clock hour at run time - outside the real 09:00-16:00 WIB trading window (the
   // scalping-scan.yml pre-market cron entry runs at 19:00 WIB the evening BEFORE, not right
   // before the open - see that file's comment for why), real fresh intraday chart/running-
@@ -96,7 +97,23 @@ async function main() {
       const prev = previous.get(q.code);
       let vwap = prev?.vwap ?? null, ema3 = prev?.ema3 ?? null, ema5 = prev?.ema5 ?? null, ema9 = prev?.ema9 ?? null, rsi7 = prev?.rsi7 ?? null;
       let chartUpdatedAt = prev?.chart_updated_at ?? null;
+      let atr5dAvg = prev?.atr5d_avg ?? null;
+      let atrBaselineDate = prev?.atr_baseline_date ?? null;
+      let atrElevated = prev?.atr_elevated ?? null;
       let lastBar = null, avgBarVolume = null;
+
+      // Daily ATR(14) 5-day baseline (Spesifikasi Algorithmic Trading & ML.pdf §1.1, see
+      // lib/scalping.mjs atrDailyBaseline) - only needs refreshing once per real trading day,
+      // not every 5-minute cycle, so it's cached the same way VWAP/EMA are across cycles.
+      if (atrBaselineDate !== todayWib) {
+        try {
+          const daily = await withRetry(() => zapi.chart({ symbol: `IDX:${q.code}`, count: 25 }));
+          atr5dAvg = atrDailyBaseline(daily);
+          atrBaselineDate = todayWib;
+        } catch (e) {
+          console.error(`daily chart(${q.code}) unavailable for ATR baseline this cycle, reusing cached value if any:`, e.message);
+        }
+      }
 
       if (isChartCycle || vwap == null) {
         try {
@@ -107,8 +124,13 @@ async function main() {
             const micro = microIndicators(bars);
             ema3 = micro.ema3; ema5 = micro.ema5; ema9 = micro.ema9; rsi7 = micro.rsi7;
             lastBar = bars[bars.length - 1];
-            const priorBars = bars.slice(0, -1);
+            // MA_Vol_20 (Buku Putih §2A) - real average of the last 20 prior 5-minute bars
+            // (or fewer early in the session, when 20 don't exist yet), not every bar since
+            // the open - a genuine moving-average baseline, not a session-long average that
+            // would keep growing stiffer as the day goes on.
+            const priorBars = bars.slice(0, -1).slice(-20);
             avgBarVolume = priorBars.length ? priorBars.reduce((a, b) => a + (b.volume || 0), 0) / priorBars.length : null;
+            atrElevated = isAtrElevated(bars, atr5dAvg);
             chartUpdatedAt = new Date().toISOString();
           }
         } catch (e) {
@@ -144,6 +166,8 @@ async function main() {
         ema3, ema5, ema9, rsi7,
         bid_percent: bidPercent,
         buy_lots: buyLots, sell_lots: sellLots,
+        // Volatility context (not a bull/bear vote - see lib/scalping.mjs isAtrElevated).
+        atr5d_avg: atr5dAvg, atr_baseline_date: atrBaselineDate, atr_elevated: atrElevated,
         chart_updated_at: chartUpdatedAt,
         ...levels,
       };

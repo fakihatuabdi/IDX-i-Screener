@@ -20,6 +20,8 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 | FCF positif & bertumbuh 3 tahun | ⚠️ Parsial — FCF per kuartal ada (`hist.free_cash_flow`), tapi histori scraper cuma ~5-6 kuartal (batas gratis Yahoo Finance), bukan 3 tahun penuh | Gap jujur, didokumentasikan di README |
 | PEG Ratio <= 1.0 | ✅ **Selesai (2026-09-20)** - data sudah ada sejak §3.1, sekarang benar-benar dipakai untuk scoring: `fundamentalScore` di `lib/pipeline.mjs` menambah skor kalau PEG<1 (murah relatif ke pertumbuhan riilnya), mengurangi kalau PEG>2 | Sebelumnya cuma tampil di tabel Fundamental Historis, belum memengaruhi ranking Investment - sekarang sudah |
 | Fair Value: DCF | ❌ Tidak diimplementasikan sesuai literal dokumen | **Keputusan: tetap Graham Number** (§2.2) |
+| TP2: PBV_Current > PBV_Historical_Avg x 2 | ✅ **Selesai (2026-09-20)** - `historicalPbvAvg` menghitung rata-rata PBV historis riil (harga penutupan riil di tanggal akhir tiap kuartal, dibagi BVPS riil kuartal itu - dari candle harian yang sudah difetch, tanpa call API tambahan), dikonversi jadi harga Target 2 riil: `2 x PBV_Historical_Avg x BVPS_sekarang` | `lib/pipeline.mjs` `historicalPbvAvg`, `computeInvestmentLevels` |
+| SL: EPS_Growth_YoY<0 2 kuartal ATAU DER>2.0 → "jual paksa" | ✅ **Selesai (2026-09-20)** - `investmentVerdict` sekarang memaksa verdict minimal Sell/Strong Sell kalau salah satu kondisi ini terpenuhi, mengesampingkan skor berbobot yang mungkin masih positif - persis semantik "jual paksa" dokumen, bukan cuma info di Varian B eksperimental lagi | `lib/pipeline.mjs` `investmentVerdict` |
 | KSEI institutional ownership trend | ❌ Tidak ada sumber data real | Gap permanen, didokumentasikan |
 | Makro/sektor top-down, moat/manajemen kualitatif | ❌ Tidak ada sumber data real | Gap permanen, di luar scope otomatisasi |
 
@@ -33,6 +35,10 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 | Volume > 1.5x rata-rata 20 hari | ⚠️ Kode pakai ambang 2.0x (RVOL), bukan 1.5x | Dokumen baru bilang breakout perlu >1.5x, ambang lama 2.0x dipertahankan (lebih ketat, mengurangi false breakout) — tidak diubah tanpa alasan kuat |
 | Fibonacci Retracement 0.618/0.5 | ✅ **Selesai (2026-09-20)** - dihitung dari `prior50High`/`prior50Low` riil, bullish kalau harga sedang di zona retracement 50%-61.8% | `swingScore` (`fibZone`) di `lib/pipeline.mjs`, +1 poin bullish, `maxBull` naik dari 11 ke 12 |
 | NBSA (Net Buy/Sell Amount broker) | ✅ Ada, via proxy `broker_buy_concentration` (Pluang top-3 buyer) | Bukan NBSA resmi KSEI, tapi real dan sudah didokumentasikan sebagai proxy |
+| Entry: `(Sentuh SMA50 OR Fib 0.618) AND Bandarmologi` | ✅ **Selesai (2026-09-20)** - anchor zona entry sekarang mempertimbangkan SMA50 ATAU Fibonacci 0.618 riil (dipilih yang lebih dekat ke harga), bukan cuma SMA20 lagi | `computeDirectionalLevels` di `lib/pipeline.mjs` |
+| TP1 = Nearest Resistance Level | ✅ **Selesai (2026-09-20)** - dipakai literal (`prior50High`) saat resistance itu memang masih di depan harga (belum breakout); fallback ke proyeksi reward:risk kalau sudah breakout (tidak ada resistance terdekat lagi untuk disebut) | `computeDirectionalLevels` |
+| TP2 = Fibonacci Extension 1.618 | ✅ **Selesai (2026-09-20)** - dihitung dari `prior50Low + (prior50High-prior50Low)*1.618`, dipakai kalau levelnya genuinely lebih jauh dari Target 1 | `computeDirectionalLevels` |
+| SL = Close harian < Previous Swing Low | ⚠️ Masih band ATR + level struktural (bukan trigger close-based literal) - belum diselaraskan |
 
 ### 1.3. Modul Scalping (`scalpingScore`)
 
@@ -40,12 +46,15 @@ Ini gap terbesar. Kode saat ini (`ema9/ema21` harian, RSI7, ATR) adalah **pendek
 
 | Parameter dokumen | Sumber data real yang tersedia | Status |
 |---|---|---|
-| Tren mikro EMA 3/5/9 di chart 1 atau 3 menit | `finance:pluang/chart` — **hanya 5 menit**, bukan 1/3 menit (batas upstream) | Diimplementasikan dengan resolusi 5 menit (real, bukan 1 menit fiktif) — §3.4 |
-| VWAP | Dihitung dari candle 5 menit real (`finance:pluang/chart`) — cumulative (typical price × volume) / cumulative volume sepanjang sesi | §3.4 |
-| RSI(7) rebound di 20 | Dihitung dari candle 5 menit | §3.4 |
-| Order Book Dynamics (rasio Bid/Offer) | `finance:pluang/orderbook` — **real**, tapi cuma level harga terbaik (best bid/ask), bukan depth-of-book penuh | §3.4, gap didokumentasikan |
-| Tape Reading (HAKA) | `finance:pluang/running-trades` — **real**, tiap cetakan transaksi bertanda sisi agresor BUY/SELL | §3.4 |
-| ATR intraday > rata-rata 5 hari | Bisa dihitung dari candle 5 menit harian yang diakumulasi | §3.4 |
+| Tren mikro EMA 3/5/9 di chart 1 atau 3 menit | `finance:pluang/chart` — **hanya 5 menit**, bukan 1/3 menit (batas upstream) | ✅ Diimplementasikan dengan resolusi 5 menit (real, bukan 1 menit fiktif) |
+| VWAP | Dihitung dari candle 5 menit real (`finance:pluang/chart`) — cumulative (typical price × volume) / cumulative volume sepanjang sesi | ✅ |
+| Volume Breakout vs `MA_Vol_20` | ✅ **Selesai (2026-09-20)** - rata-rata 20 bar 5-menit sebelumnya (bukan lagi rata-rata seluruh sesi berjalan) | `scripts/scalping-scan.mjs` |
+| RSI(7) rebound di 20 | Dihitung dari candle 5 menit, zona `<=25` (bukan deteksi event "baru saja menembus 20" — pendekatan zona statis, bukan cross-event) | ⚠️ Approksimasi, bukan literal |
+| Order Book Dynamics (rasio Bid/Offer) | `finance:pluang/orderbook` — **real**, tapi cuma level harga terbaik (best bid/ask), bukan depth-of-book penuh | ✅ |
+| Tape Reading (HAKA) | `finance:pluang/running-trades` — **real**, tiap cetakan transaksi bertanda sisi agresor BUY/SELL | ✅ |
+| ATR intraday > rata-rata 5 hari | ✅ **Selesai (2026-09-20)** - ATR(14) harian real (Wilder) dari 5 hari terakhir sebagai baseline, dibandingkan real range intraday sesi berjalan. Informasi konteks (badge "Volatilitas Tinggi/Normal"), bukan vote bull/bear ke-7 - dokumen sendiri memperlakukannya sebagai konfirmasi kondisi, bukan sinyal arah | `lib/scalping.mjs` `atrDailyBaseline`/`isAtrElevated` |
+| Entry: `(VWAP) AND (Vol Breakout) AND (Tape Reading)` - AND ketat 3 syarat | ⚠️ Masih pakai matriks generik "≥4 dari 6 sinyal" (Buku Putih §1), bukan AND ketat 3 syarat spesifik ini - belum diselaraskan |
+| TP2 "OR Tape Reading==FALSE", SL "OR Price<VWAP" (kondisi dinamis real-time) | ❌ Belum - butuh arsitektur monitoring berkelanjutan (bukan scan berkala), sengaja ditunda atas keputusan user (2026-09-20) |
 
 **Kendala nyata: kuota API, bukan lagi ketersediaan data.** Lihat §2.3 dan §3.4 untuk perhitungan detail dan keputusan yang masih perlu diambil user.
 
