@@ -925,7 +925,10 @@ footer .mono{font-size:11px;}
         document.getElementById("cardGrid").innerHTML='<p class="empty-note">Data scan real-time belum tersedia. Update otomatis tiap 5 menit selama jam bursa (09:00&ndash;15:50 WIB, Senin&ndash;Jumat).</p>';
         return;
       }
-      document.getElementById("recsSub").textContent="Update "+fmtDateTime(sl.generated_at)+" &middot; "+sl.hot_count+" dari "+sl.universe_count+" saham dipantau sedang di-deep-scan &middot; tiap 5 menit selama jam bursa";
+      var phaseNote = sl.session_phase==="pre_market"
+        ? " &middot; <b>Prep pra-bursa</b> (belum ada data intraday hari ini - VWAP/EMA/RSI7 dari penutupan sesi sebelumnya, order book/tape reading real per saat ini)"
+        : "";
+      document.getElementById("recsSub").innerHTML="Update "+fmtDateTime(sl.generated_at)+" &middot; "+sl.hot_count+" dari "+sl.universe_count+" saham dipantau sedang di-deep-scan &middot; tiap 5 menit selama jam bursa"+phaseNote;
       var items=sl.items||[];
       document.getElementById("cardGrid").innerHTML = items.length ? renderGroupedByVerdict(items, scalpingLiveCard) : '<p class="empty-note">Belum ada saham yang di-deep-scan siklus ini (di luar jam bursa, atau baru saja dimulai).</p>';
       return;

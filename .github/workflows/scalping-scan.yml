@@ -1,14 +1,21 @@
 name: Scalping Live Scan
 
-# Real intraday scan, every 5 minutes during trading hours only (ROADMAP.md §3.4) - two-tier
-# design (cheap Multi Quote screen of the full 250-ticker universe, deep order-book/tape-
-# reading scan of the ~30 biggest movers) sized to fit comfortably inside the 200k call/month
-# Zapi quota alongside the existing daily pipeline. Never runs outside 09:00-15:50 WIB
-# (02:00-08:50 UTC) Mon-Fri - IDX doesn't trade outside those hours, so there's nothing real to
-# scan and no point spending quota on it.
+# Real intraday scan, every 5 minutes during trading hours (ROADMAP.md §3.4) - two-tier design
+# (cheap Multi Quote screen of the full 250-ticker universe, deep order-book/tape-reading scan
+# of the ~30 biggest movers) sized to fit comfortably inside the 200k call/month Zapi quota
+# alongside the existing daily pipeline.
+#
+# Plus ONE pre-market run at 08:45 WIB (15 min before the 09:00 open) - same script, same real
+# confluence signals (VWAP/EMA/RSI7/Order Book/Tape Reading), no separate "old daily" logic
+# revived. Real intraday bars/trades genuinely don't exist yet before the market opens, so that
+# run naturally reuses the last real values scripts/scalping-scan.mjs already had cached from
+# the previous session's close (see isChartCycle's own "reuse cached if nothing fresh came
+# back" fallback) rather than fabricating anything - scalping-scan.mjs tags the output with
+# session_phase so the dashboard can label it "prep pra-bursa" instead of implying it's live.
 on:
   schedule:
-    - cron: "*/5 2-8 * * 1-5"
+    - cron: "45 1 * * 1-5" # 08:45 WIB - one pre-market prep run
+    - cron: "*/5 2-8 * * 1-5" # 09:00-15:55 WIB - live, every 5 minutes
   workflow_dispatch: {}
 
 permissions:
