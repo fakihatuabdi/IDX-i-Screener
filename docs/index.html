@@ -133,6 +133,11 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .strategy-toggle button{font-size:13px; font-weight:600; padding:9px 18px; border:none; background:var(--surface); color:var(--text-2); cursor:pointer; letter-spacing:0.01em;}
 .strategy-toggle button.active{background:var(--text-1); color:var(--bg);}
 .strategy-toggle button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+.view-nav{display:flex; gap:4px; max-width:1280px; margin:16px auto; padding:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow-x:auto;}
+.view-nav button{font-size:13px; font-weight:600; padding:9px 16px; border:none; border-radius:7px; background:transparent; color:var(--text-2); cursor:pointer; white-space:nowrap; letter-spacing:0.01em; flex:none;}
+.view-nav button.active{background:var(--accent); color:#fff;}
+.view-nav button:hover:not(.active){background:var(--surface-2);}
+.view-nav button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
 .strategy-note{font-size:12px; color:var(--text-muted); margin-bottom:14px;}
 .badge-row{display:flex; gap:6px; flex-wrap:wrap;}
 .verdict-badge{font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;}
@@ -211,7 +216,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .price-cell .val.range{font-size:12px;}
 .price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.target2 .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
 .last-price-row{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--text-muted); padding:0 2px; margin-bottom:6px;}
-.last-price-row .val{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--text); font-size:13px;}
+.last-price-row .val{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--text-1); font-size:13px;}
 .pct-gap{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--text-muted); background:var(--surface-2,var(--surface)); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .pct-gap.warn{color:var(--critical); background:var(--critical-soft);}
 .pct-gain{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--good); background:var(--good-soft); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
@@ -237,6 +242,28 @@ details.fund summary::-webkit-details-marker{display:none;} details.fund summary
 .empty-note{color:var(--text-muted); font-size:12.5px; font-style:italic;}
 footer{margin-top:28px; padding-top:18px; border-top:1px solid var(--border); color:var(--text-muted); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
 footer .mono{font-size:11px;}
+
+.fund-hist-controls{display:flex; align-items:center; gap:10px; margin:4px 0 16px;}
+.fund-hist-controls label{font-size:12.5px; font-weight:600; color:var(--text-2);}
+.fund-hist-controls select{font-family:inherit; font-size:13px; padding:7px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-1);}
+.fund-table-wrap{overflow-x:auto;}
+.fund-table{width:auto; max-width:100%; border-collapse:collapse; font-size:12px;}
+.fund-table th,.fund-table td{padding:7px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--gridline);}
+.fund-table th:first-child,.fund-table td:first-child{text-align:left; padding-left:2px;}
+.fund-table th{color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:9.5px; letter-spacing:0.04em;}
+.fund-table td{font-family:"IBM Plex Mono",monospace;}
+.fund-table td.up{color:var(--good);} .fund-table td.down{color:var(--critical);}
+.status-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:6px;}
+.status-cell{background:var(--surface); border-radius:8px; padding:12px 14px;}
+.status-cell .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600;}
+.status-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:18px; margin-top:4px;}
+.method-block{margin-bottom:22px;}
+.method-block:last-child{margin-bottom:0;}
+.method-block h3{font-size:14.5px; margin-bottom:8px; color:var(--text-1);}
+.method-block p{font-size:12.5px; color:var(--text-2); line-height:1.6; margin:0 0 8px;}
+.method-block ul{margin:0 0 8px; padding-left:20px; font-size:12.5px; color:var(--text-2); line-height:1.6;}
+.method-block li{margin-bottom:6px;}
+.method-block .mono{background:var(--surface); padding:1px 5px; border-radius:4px; font-size:11.5px;}
 </style>
 </head>
 <body>
@@ -261,7 +288,14 @@ footer .mono{font-size:11px;}
 
 <div id="dataHealthBanner" hidden></div>
 
-<div class="wrap">
+<nav class="view-nav" role="tablist" aria-label="Bagian dashboard">
+  <button type="button" id="navDashboard" class="active">Dashboard</button>
+  <button type="button" id="navFundamentals">Fundamental Historis</button>
+  <button type="button" id="navScraperStatus">Status Data Scraper</button>
+  <button type="button" id="navMethodology">Metodologi &amp; Skor</button>
+</nav>
+
+<div class="wrap" id="viewDashboard">
   <section class="panel info" id="panelSummary">
     <div class="panel-head"><div><div class="eyebrow">Ringkasan Kondisi Pasar</div><h2>Regime &amp; Sektor</h2></div></div>
     <span class="regime-badge" id="regimeBadge">&mdash;</span>
@@ -335,6 +369,73 @@ footer .mono{font-size:11px;}
   </footer>
 </div>
 
+<div class="wrap" id="viewFundamentals" hidden>
+  <section class="panel info" id="panelFundamentalsHistoris">
+    <div class="panel-head"><div><div class="eyebrow">Data Fundamental</div><h2>Fundamental Historis per Saham</h2><div class="panel-sub">Laporan keuangan resmi IDX (XBRL) per kuartal - diperbarui tidak rutin, lihat tab &quot;Status Data Scraper&quot;</div></div></div>
+    <div class="fund-hist-controls">
+      <label for="fundTickerSelect">Pilih saham</label>
+      <select id="fundTickerSelect"></select>
+    </div>
+    <div id="fundHistBody"><p class="empty-note">Memuat data&hellip;</p></div>
+  </section>
+</div>
+
+<div class="wrap" id="viewScraperStatus" hidden>
+  <section class="panel info" id="panelScraperStatus">
+    <div class="panel-head"><div><div class="eyebrow">Transparansi Data</div><h2>Status Data Scraper Fundamental</h2><div class="panel-sub">Scraper IDX XBRL kami sendiri (scrapers/idx-fundamentals/) - jalan tidak rutin, terpisah dari update harian jam 19:00 WIB</div></div></div>
+    <div id="scraperStatusBody"><p class="empty-note">Memuat data&hellip;</p></div>
+  </section>
+</div>
+
+<div class="wrap" id="viewMethodology" hidden>
+  <section class="panel info">
+    <div class="panel-head"><div><div class="eyebrow">Transparansi Metodologi</div><h2>Bagaimana Skor &amp; Rekomendasi Dihitung</h2><div class="panel-sub">Semua angka di bawah dihitung deterministik dari data real - Claude API hanya menulis kalimat narasi, tidak pernah menentukan verdict atau harga</div></div></div>
+
+    <div class="method-block">
+      <h3>1. Verdict (Strong Buy / Buy / Hold / Sell / Strong Sell)</h3>
+      <p>Dihitung dari <b>skor konfluensi</b> - menghitung berapa banyak sinyal riil independen yang searah, bukan mengandalkan satu indikator saja. Sisi bullish dan bearish dihitung terpisah supaya sinyal yang benar-benar bertentangan jatuh ke Hold, bukan dipaksa ke satu arah.</p>
+      <ul>
+        <li><b>Scalping</b>: EMA9/21 cross, RVOL, RSI(7), ADX/+DI/-DI, MACD(8,24,9), OBV, breakout/breakdown 20 hari, konsentrasi top-3 broker pembeli. Fundamental 100% tidak dipakai.</li>
+        <li><b>Swing</b>: SMA20/50 cross, RSI(14), ADX/+DI/-DI, MACD(12,26,9), pola Higher-High/Higher-Low, breakout/breakdown 50 hari, konsentrasi broker. Fundamental 100% tidak dipakai.</li>
+        <li><b>Investment</b>: rating teknikal TradingView + rasio fundamental (ROE/PBV/DER/dividend yield) sebagai faktor terbesar, RSI &amp; ADX <i>mingguan</i>, breakout/breakdown 52 minggu.</li>
+      </ul>
+      <p><b>Success Rate %</b> pada tiap kartu dihitung langsung dari rasio skor konfluensi yang sama (bukan angka terpisah), diskalakan ke rentang 50-90%.</p>
+    </div>
+
+    <div class="method-block">
+      <h3>2. Entry, Target 1/2, dan Stop Loss</h3>
+      <p>Tidak ada lagi persentase flat dari harga close. Semuanya dihitung dari <b>ATR(14)</b> (volatilitas riil saham itu sendiri, metode Wilder) dan struktur support/resistance riil.</p>
+      <ul>
+        <li><b>Entry Scalping &amp; Swing</b> (Buy/Strong Buy saja) berupa <b>rentang harga</b>, dipilih dari 4 skenario teknikal: breakout confirmed (harga sudah tutup di atas resistance), anticipatory breakout (buy-stop zone <i>di atas</i> harga sekarang, tepat di level resistance), pullback (dari support riil sampai harga close), atau zona sempit di bawah close kalau tidak ada struktur relevan.</li>
+        <li><b>Max Buy Investment</b> (Buy/Strong Buy saja) adalah harga batas atas dari <b>Graham Number</b> (&radic;(22.5 &times; EPS &times; BVPS), memakai EPS/BVPS riil dari laporan keuangan hasil scraper kalau tersedia, atau diturunkan dari PER/PBV kalau belum), dikurangi <b>margin of safety</b> yang disesuaikan oleh DER, ROE, tren ADX mingguan, volume, konsentrasi broker, corporate action mendatang, dan tren pertumbuhan revenue/laba riil.</li>
+        <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss (Sell = aksi jual sekarang di harga close riil).</li>
+        <li><b>Stop Loss</b> di-set sejauh jarak ATR, digeser sedikit melewati support/resistance riil terdekat kalau levelnya lebih ketat dari stop berbasis ATR.</li>
+        <li><b>Target 1</b> = reward:risk pertama dari jarak risk yang sama; <b>Target 2</b> = objektif lanjutan (level struktural riil lebih jauh kalau ada, atau proyeksi reward:risk yang diperluas).</li>
+      </ul>
+    </div>
+
+    <div class="method-block">
+      <h3>3. Data Fundamental Historis (baru)</h3>
+      <p>Dikumpulkan dari laporan keuangan resmi IDX (format XBRL) lewat scraper Python milik kami sendiri (<span class="mono">scrapers/idx-fundamentals/</span>) - dijalankan tidak rutin (manual atau bulanan), terpisah dari update harian. Metrik yang dihitung: EPS, BVPS, current ratio, debt-to-equity riil, free cash flow, serta pertumbuhan revenue &amp; laba bersih year-over-year - semuanya dari angka laporan keuangan asli, bukan estimasi.</p>
+    </div>
+
+    <div class="method-block">
+      <h3>4. Ketahanan Data (Primary/Secondary/Watchdog)</h3>
+      <p>Kalau data resmi IDX (index-summary/foreign-flow/broker-summary) sedang gangguan, sistem otomatis pindah ke data cadangan riil dari Pluang dalam run yang sama (bukan diam-diam memakai data lama). Kalau kedua sumber gagal, dashboard menampilkan notifikasi jujur di header. Recovery watchdog mengecek tiap jam dan otomatis kembali ke data resmi begitu pulih.</p>
+    </div>
+
+    <div class="method-block">
+      <h3>5. Yang Sengaja Tidak Diimplementasikan</h3>
+      <p>Karena tidak ada sumber data real yang tersedia: tren kepemilikan asing/institusi KSEI resmi per kuartal (dipakai proxy kasar dari konsentrasi broker harian), analisis makro/sektor top-down, penilaian kualitatif moat/manajemen/tata kelola, dan valuasi DCF penuh. Kalau datanya tidak ada, faktornya dilewati - tidak pernah dikarang.</p>
+    </div>
+
+    <div class="method-block">
+      <h3>6. Win Rate vs Success Rate</h3>
+      <p><b>Win Rate</b> adalah angka historis riil: tiap rekomendasi Buy/Sell dicatat dengan harga close saat direkomendasikan, lalu dicek terhadap harga sungguhan di run berikutnya. <b>Success Rate %</b> di kartu saham BEDA - itu skor keyakinan dari sinyal teknikal/fundamental saat ini (dibatasi 50-90%), bukan win rate historisnya.</p>
+    </div>
+  </section>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -346,7 +447,7 @@ footer .mono{font-size:11px;}
   function fmtDateTime(iso){ if(!iso) return "&mdash;"; try{ var d=new Date(iso); return d.toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"})+" WIB"; }catch(e){ return iso; } }
   function esc(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
-  var state = { data:null, strategy:"swing", online:null };
+  var state = { data:null, strategy:"swing", online:null, view:"dashboard", fundamentals:null, scraperStatus:null };
   var STRATEGY_NOTES = {
     scalping:"Intraday, 1 hari. Fokus: RVOL&ge;2x, EMA9/21, RSI(7), ADX/MACD/OBV, broker top-3, breakout support/resistance.",
     swing:"Beberapa hari - minggu. Fokus: SMA20/50, RSI(14), ADX/MACD, broker top-3, pola Higher-High/Higher-Low.",
@@ -820,6 +921,83 @@ footer .mono{font-size:11px;}
   document.getElementById("btnSwing").addEventListener("click",function(){ state.strategy="swing"; render(); });
   document.getElementById("btnInvestment").addEventListener("click",function(){ state.strategy="investment"; render(); });
 
+  // Top-level view switcher: the dashboard stays one static page, these just show/hide
+  // whole sections client-side - no server, no routing, no page reload.
+  var VIEW_IDS = { dashboard:"viewDashboard", fundamentals:"viewFundamentals", scraperStatus:"viewScraperStatus", methodology:"viewMethodology" };
+  var NAV_IDS = { dashboard:"navDashboard", fundamentals:"navFundamentals", scraperStatus:"navScraperStatus", methodology:"navMethodology" };
+  function setView(view){
+    state.view = view;
+    Object.keys(VIEW_IDS).forEach(function(key){ document.getElementById(VIEW_IDS[key]).hidden = (key !== view); });
+    Object.keys(NAV_IDS).forEach(function(key){ document.getElementById(NAV_IDS[key]).classList.toggle("active", key === view); });
+    if (view === "fundamentals") renderFundamentalsView();
+    if (view === "scraperStatus") renderScraperStatusView();
+  }
+  document.getElementById("navDashboard").addEventListener("click", function(){ setView("dashboard"); });
+  document.getElementById("navFundamentals").addEventListener("click", function(){ setView("fundamentals"); });
+  document.getElementById("navScraperStatus").addEventListener("click", function(){ setView("scraperStatus"); });
+  document.getElementById("navMethodology").addEventListener("click", function(){ setView("methodology"); });
+
+  // Fundamental Historis: real quarterly figures from the IDX XBRL scraper
+  // (scrapers/idx-fundamentals/) - a separate, occasionally-updated file, never fetched as
+  // part of the fast daily pipeline, so it's fine (and correct) if it's simply missing.
+  function rp(v){ return v==null ? "&mdash;" : "Rp"+fmtRp(v); }
+  function fmtPct1(v){ return v==null ? "&mdash;" : (v>=0?"+":"")+v+"%"; }
+  function growthClass(v){ return v==null ? "" : (v>=0?"up":"down"); }
+  function renderFundamentalsView(){
+    var select = document.getElementById("fundTickerSelect");
+    var body = document.getElementById("fundHistBody");
+    var fh = state.fundamentals;
+    var tickers = fh && fh.tickers ? Object.keys(fh.tickers).sort() : [];
+    if (!tickers.length){
+      select.innerHTML = "";
+      body.innerHTML = '<p class="empty-note">Data fundamental historis belum tersedia - scraper belum pernah dijalankan atau belum mencakup saham manapun. Cek tab &quot;Status Data Scraper&quot;.</p>';
+      return;
+    }
+    if (select.options.length !== tickers.length){
+      var keep = select.value;
+      select.innerHTML = tickers.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join("");
+      select.value = tickers.indexOf(keep) !== -1 ? keep : tickers[0];
+      select.onchange = function(){ renderFundTable(fh.tickers[select.value]); };
+    }
+    renderFundTable(fh.tickers[select.value] || fh.tickers[tickers[0]]);
+  }
+  function renderFundTable(entry){
+    var body = document.getElementById("fundHistBody");
+    if (!entry || !entry.quarters || !entry.quarters.length){
+      body.innerHTML = '<p class="empty-note">Belum ada data kuartal untuk saham ini.</p>';
+      return;
+    }
+    var rows = entry.quarters.slice().reverse().map(function(q){
+      return "<tr><td>"+q.year+" "+esc(q.period)+"</td>"
+        + "<td>"+rp(q.revenue)+"</td>"
+        + '<td class="'+growthClass(q.revenue_growth_yoy)+'">'+fmtPct1(q.revenue_growth_yoy)+"</td>"
+        + "<td>"+rp(q.net_income)+"</td>"
+        + '<td class="'+growthClass(q.net_income_growth_yoy)+'">'+fmtPct1(q.net_income_growth_yoy)+"</td>"
+        + "<td>"+(q.eps!=null?fmtNum(q.eps,true):"&mdash;")+"</td>"
+        + "<td>"+(q.bvps!=null?fmtNum(q.bvps,true):"&mdash;")+"</td>"
+        + "<td>"+(q.current_ratio!=null?q.current_ratio.toFixed(2):"&mdash;")+"</td>"
+        + "<td>"+(q.debt_to_equity_real!=null?q.debt_to_equity_real.toFixed(1)+"%":"&mdash;")+"</td>"
+        + "<td>"+rp(q.free_cash_flow)+"</td></tr>";
+    }).join("");
+    body.innerHTML = '<div class="fund-table-wrap"><table class="fund-table">'
+      + "<thead><tr><th>Periode</th><th>Revenue</th><th>YoY</th><th>Laba Bersih</th><th>YoY</th><th>EPS</th><th>BVPS</th><th>Current Ratio</th><th>DER</th><th>FCF</th></tr></thead>"
+      + "<tbody>"+rows+"</tbody></table></div>";
+  }
+
+  function renderScraperStatusView(){
+    var body = document.getElementById("scraperStatusBody");
+    var status = state.scraperStatus;
+    if (!status){
+      body.innerHTML = '<p class="empty-note">Scraper fundamental belum pernah dijalankan. Bisa dipicu manual lewat tab Actions di repo GitHub (workflow &quot;IDX Fundamentals Scraper&quot;) kapan saja - prosesnya sengaja tidak otomatis harian.</p>';
+      return;
+    }
+    body.innerHTML = '<div class="status-grid">'
+      + '<div class="status-cell"><div class="lbl">Terakhir Diperbarui</div><div class="val">'+fmtDateTime(status.generated_at)+"</div></div>"
+      + '<div class="status-cell"><div class="lbl">Saham Tercakup</div><div class="val tab-nums">'+(status.tickers_covered || 0)+"</div></div>"
+      + '<div class="status-cell"><div class="lbl">Total Data Kuartal</div><div class="val tab-nums">'+(status.total_quarters || 0)+"</div></div>"
+      + "</div>";
+  }
+
   function load(){
     // Cache-bust: this is a static file GitHub Pages/browsers may cache aggressively,
     // and it changes once a day - a fresh query string forces a real re-fetch.
@@ -835,6 +1013,18 @@ footer .mono{font-size:11px;}
   }
   load();
   setInterval(load, 60000); // pick up a same-day re-run automatically if the page stays open
+
+  // Fetched once, not on the 60s poll loop - this file only changes when the separate,
+  // occasional fundamental-scraper.yml workflow runs (at most a few times a month), and a
+  // 404 (scraper never run yet) is an expected, normal state, not an error to log.
+  fetch("./data/fundamentals-history.json?t=" + Date.now()).then(function(r){ return r.ok ? r.json() : null; }).then(function(json){
+    state.fundamentals = json;
+    if (state.view === "fundamentals") renderFundamentalsView();
+  }).catch(function(){ state.fundamentals = null; });
+  fetch("./data/fundamentals-status.json?t=" + Date.now()).then(function(r){ return r.ok ? r.json() : null; }).then(function(json){
+    state.scraperStatus = json;
+    if (state.view === "scraperStatus") renderScraperStatusView();
+  }).catch(function(){ state.scraperStatus = null; });
 })();
 </script>
 </body>
