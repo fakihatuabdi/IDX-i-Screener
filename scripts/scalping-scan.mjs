@@ -66,13 +66,14 @@ async function main() {
   }
   const previous = await loadPrevious();
   const isChartCycle = new Date().getUTCMinutes() % 15 === 0;
-  // WIB wall-clock hour at run time - before 09:00 there's no real intraday session yet (the
-  // 08:45 WIB pre-market cron entry in scalping-scan.yml), so real fresh chart/running-trades
-  // data usually won't exist either; scanSignals/the chart-cycle fallback above already handle
+  // WIB wall-clock hour at run time - outside the real 09:00-16:00 WIB trading window (the
+  // scalping-scan.yml pre-market cron entry runs at 19:00 WIB the evening BEFORE, not right
+  // before the open - see that file's comment for why), real fresh intraday chart/running-
+  // trades data genuinely doesn't exist yet; the chart-cycle fallback above already handles
   // that gracefully by reusing the last real cached values rather than fabricating anything -
   // this flag is only used to label the output honestly, never to change what gets computed.
   const wibHour = new Date(Date.now() + 7 * 3600 * 1000).getUTCHours();
-  const sessionPhase = wibHour < 9 ? "pre_market" : "live";
+  const sessionPhase = wibHour >= 9 && wibHour < 16 ? "live" : "pre_market";
 
   // ---- Tier 1: cheap, whole-universe price/volume screening ----
   const quoteItems = [];

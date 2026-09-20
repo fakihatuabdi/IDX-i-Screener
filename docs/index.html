@@ -926,7 +926,7 @@ footer .mono{font-size:11px;}
         return;
       }
       var phaseNote = sl.session_phase==="pre_market"
-        ? " &middot; <b>Prep pra-bursa</b> (belum ada data intraday hari ini - VWAP/EMA/RSI7 dari penutupan sesi sebelumnya, order book/tape reading real per saat ini)"
+        ? " &middot; <b>Prep pra-bursa</b> (disiapkan malam sebelumnya - VWAP/EMA/RSI7 dari penutupan sesi terakhir, belum ada data intraday sesi berikutnya)"
         : "";
       document.getElementById("recsSub").innerHTML="Update "+fmtDateTime(sl.generated_at)+" &middot; "+sl.hot_count+" dari "+sl.universe_count+" saham dipantau sedang di-deep-scan &middot; tiap 5 menit selama jam bursa"+phaseNote;
       var items=sl.items||[];

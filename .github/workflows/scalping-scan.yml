@@ -5,16 +5,20 @@ name: Scalping Live Scan
 # of the ~30 biggest movers) sized to fit comfortably inside the 200k call/month Zapi quota
 # alongside the existing daily pipeline.
 #
-# Plus ONE pre-market run at 08:45 WIB (15 min before the 09:00 open) - same script, same real
-# confluence signals (VWAP/EMA/RSI7/Order Book/Tape Reading), no separate "old daily" logic
-# revived. Real intraday bars/trades genuinely don't exist yet before the market opens, so that
+# Plus ONE pre-market prep run at 19:00 WIB the EVENING BEFORE each trading day (not right
+# before the 09:00 open) - most securities let orders be submitted from ~20:00 WIB onward, so a
+# same-morning run would land too close to that window. Same script, same real confluence
+# signals (VWAP/EMA/RSI7/Order Book/Tape Reading) as the live scan - no separate "old daily"
+# logic revived. Real intraday bars/trades for the NEXT day obviously don't exist yet, so that
 # run naturally reuses the last real values scripts/scalping-scan.mjs already had cached from
-# the previous session's close (see isChartCycle's own "reuse cached if nothing fresh came
-# back" fallback) rather than fabricating anything - scalping-scan.mjs tags the output with
+# that day's own close (see isChartCycle's own "reuse cached if nothing fresh came back"
+# fallback) rather than fabricating anything - scalping-scan.mjs tags the output with
 # session_phase so the dashboard can label it "prep pra-bursa" instead of implying it's live.
+# Days 0-4 (Sun-Thu) mirror daily-update.yml's own schedule: Sunday evening preps Monday,
+# Thursday evening preps Friday - Friday evening is skipped (Saturday isn't a trading day).
 on:
   schedule:
-    - cron: "45 1 * * 1-5" # 08:45 WIB - one pre-market prep run
+    - cron: "0 12 * * 0-4" # 19:00 WIB the evening before - one pre-market prep run
     - cron: "*/5 2-8 * * 1-5" # 09:00-15:55 WIB - live, every 5 minutes
   workflow_dispatch: {}
 
