@@ -4,6 +4,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { buildDashboard } from "../lib/pipeline.mjs";
 import { writeWeeklySummary } from "../lib/claude.mjs";
+import { insertRows } from "../lib/supabase.mjs";
 
 const OUT_DIR = new URL("../docs/data/", import.meta.url);
 const LATEST_PATH = new URL("latest.json", OUT_DIR);
@@ -204,7 +205,21 @@ async function main() {
 
   const weeklySummary = isFridayRun ? await buildWeeklySummary(trackRecord, wibNow) : null;
 
-  const { price_lookup, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
+  // Feature+outcome logging for the ML roadmap (ROADMAP.md §3.5) - never fatal: Supabase being
+  // briefly unavailable must not block the dashboard itself from publishing, same resilience
+  // rule as every other optional data source in this pipeline. Silently skipped (not an error)
+  // if the secrets aren't configured yet - lets this ship ahead of the user finishing Supabase
+  // setup without breaking the existing daily run.
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+    try {
+      const inserted = await insertRows("trade_analysis_log", dashboard.trade_log_rows);
+      console.log(`Logged ${inserted.length} rows to Supabase trade_analysis_log.`);
+    } catch (e) {
+      console.error("Supabase trade_analysis_log insert failed, continuing without it:", e.message);
+    }
+  }
+
+  const { price_lookup, trade_log_rows, ...dashboardForOutput } = dashboard; // internal-only, not needed by the frontend
   const output = {
     ok: true,
     ...dashboardForOutput,

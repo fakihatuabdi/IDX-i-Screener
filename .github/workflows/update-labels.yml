@@ -1,0 +1,33 @@
+name: Update Trade Labels
+
+# Fills in the real outcome (H+7/H+30 price, whether Target 1 or the stop-loss got hit first,
+# max drawdown) for every Buy/Sell call already logged to Supabase's trade_analysis_log - the
+# "update_labels.py" job from Arsitektur Data & ML Roadmap.pdf §2 Fase 1. Runs after the
+# session closes so the day's own calls have a real closing candle to start counting from.
+# Writes only to Supabase - never touches docs/data/ or git, so no commit step is needed here.
+on:
+  schedule:
+    - cron: "30 12 * * 1-5" # 19:30 WIB = 12:30 UTC, Monday-Friday - 30 min after the 19:00 WIB
+    # daily update (which is what actually logs each day's calls to trade_analysis_log), so
+    # this always runs against a fully up-to-date log table.
+  workflow_dispatch: {}
+
+jobs:
+  update-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update trade labels
+        run: node scripts/update-labels.mjs
+        env:
+          ZAPI_KEY: ${{ secrets.ZAPI_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
