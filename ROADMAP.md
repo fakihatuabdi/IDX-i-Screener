@@ -19,9 +19,10 @@ Status per 2026-09-20. Tiga keputusan arsitektur besar sudah dikonfirmasi bersam
 | Dividend Yield >= 5% | ✅ Ada (`f.dividend_yield`) | |
 | FCF positif & bertumbuh 3 tahun | ⚠️ Parsial — FCF per kuartal ada (`hist.free_cash_flow`), tapi histori scraper cuma ~5-6 kuartal (batas gratis Yahoo Finance), bukan 3 tahun penuh | Gap jujur, didokumentasikan di README |
 | PEG Ratio <= 1.0 | ✅ **Selesai (2026-09-20)** - data sudah ada sejak §3.1, sekarang benar-benar dipakai untuk scoring: `fundamentalScore` di `lib/pipeline.mjs` menambah skor kalau PEG<1 (murah relatif ke pertumbuhan riilnya), mengurangi kalau PEG>2 | Sebelumnya cuma tampil di tabel Fundamental Historis, belum memengaruhi ranking Investment - sekarang sudah |
-| Fair Value: DCF | ❌ Tidak diimplementasikan sesuai literal dokumen | **Keputusan: tetap Graham Number** (§2.2) |
+| Fair Value: DCF | ✅ **Ditambahkan (2026-09-20)** - dikombinasikan (rata-rata) dengan Graham Number, bukan menggantikannya - lihat §2.2 untuk rincian input real vs asumsi terbuka | `lib/pipeline.mjs` `computeDcfFairValue`, `computeCombinedFairValue` |
 | TP2: PBV_Current > PBV_Historical_Avg x 2 | ✅ **Selesai (2026-09-20)** - `historicalPbvAvg` menghitung rata-rata PBV historis riil (harga penutupan riil di tanggal akhir tiap kuartal, dibagi BVPS riil kuartal itu - dari candle harian yang sudah difetch, tanpa call API tambahan), dikonversi jadi harga Target 2 riil: `2 x PBV_Historical_Avg x BVPS_sekarang` | `lib/pipeline.mjs` `historicalPbvAvg`, `computeInvestmentLevels` |
 | SL: EPS_Growth_YoY<0 2 kuartal ATAU DER>2.0 → "jual paksa" | ✅ **Selesai (2026-09-20)** - `investmentVerdict` sekarang memaksa verdict minimal Sell/Strong Sell kalau salah satu kondisi ini terpenuhi, mengesampingkan skor berbobot yang mungkin masih positif - persis semantik "jual paksa" dokumen, bukan cuma info di Varian B eksperimental lagi | `lib/pipeline.mjs` `investmentVerdict` |
+| ENTRY: `(SEMUA 6 Parameter==TRUE) AND (Price<Fair Value×0.7)` | ✅ **Ditambahkan sebagai info pembanding (2026-09-20)** - AND ketat 6 gerbang sekaligus, jauh lebih ketat dari skor berbobot yang tetap jadi verdict resmi (keputusan sadar bareng user - literal seperti ini bisa bikin tab Investment sering kosong di pasar riil) | `lib/pipeline.mjs` `investmentLiteralEntryVerdict`, badge "Alt" di kartu (cuma muncul kalau hasilnya "Buy") |
 | KSEI institutional ownership trend | ❌ Tidak ada sumber data real | Gap permanen, didokumentasikan |
 | Makro/sektor top-down, moat/manajemen kualitatif | ❌ Tidak ada sumber data real | Gap permanen, di luar scope otomatisasi |
 
@@ -76,9 +77,17 @@ Belum ada tabel `trade_analysis_log`/`trade_labels`. Yang sudah ada (`docs/data/
 
 Awalnya diperkirakan tidak ada sumber data real untuk VWAP/order book/tape reading, sehingga muncul opsi "hapus modul Scalping". User menunjukkan bahwa Pluang (via Zapi) memang menyediakan endpoint ini. Setelah verifikasi lewat dokumentasi resmi Zapi, dikonfirmasi tersedia: Intraday Chart, Order Book, Running Trade. Modul Scalping dilanjutkan dengan data ini (lihat §1.3, §3.4).
 
-### 2.2. Fair Value Investment: tetap Graham Number, tambah PEG Ratio
+### 2.2. Fair Value Investment: Graham Number + PEG Ratio, lalu ditambah DCF (2026-09-20)
 
-DCF butuh asumsi growth rate & discount rate masa depan (bukan data yang benar-benar teramati) — bertentangan dengan prinsip "jangan pernah mengarang angka" yang jadi dasar Max Buy (Graham Number) sejak awal. PEG Ratio dipilih sebagai pelengkap karena murni dihitung dari data historis real (PER ÷ EPS Growth YoY riil), tanpa proyeksi masa depan.
+Keputusan awal (masih berlaku sebagian): DCF butuh asumsi growth rate & discount rate masa depan (bukan data yang benar-benar teramati) — bertentangan dengan prinsip "jangan pernah mengarang angka" yang jadi dasar Max Buy (Graham Number) sejak awal. PEG Ratio dipilih sebagai pelengkap karena murni dihitung dari data historis real (PER ÷ EPS Growth YoY riil), tanpa proyeksi masa depan.
+
+**Update 2026-09-20 (atas permintaan eksplisit user): DCF ditambahkan juga, dikombinasikan dengan Graham Number** (rata-rata keduanya untuk Fair Value, fallback ke yang tersedia kalau cuma satu bisa dihitung - lihat `computeCombinedFairValue`/`computeDcfFairValue` di `lib/pipeline.mjs`). Keberatan prinsip di atas diselesaikan dengan menjaga SETIAP input yang bisa real tetap real, dan mendisclose eksplisit input yang terpaksa jadi asumsi:
+
+- **Real**: TTM Free Cash Flow (jumlah 4 kuartal riil terakhir dari scraper), laju pertumbuhan dari net income growth YoY riil historis (dibatasi -15%..+20% supaya anomali 1 kuartal - pernah terlihat >800% untuk beberapa saham tambang - tidak diekstrapolasi jadi angka absurd), bobot struktur modal WACC dari DER riil, jumlah saham beredar riil.
+- **Asumsi terbuka/bisa dirujuk** (bukan data live, tidak ada sumber real-time untuk ini): cost of equity ~11% dan cost of debt ~8% (estimasi cost of capital Indonesia, kerangka Damodaran - sama seperti yang dipakai untuk ambang ROE bearish di §3.3), tarif pajak 22% (tarif resmi PPh Badan Indonesia, angka publik), pertumbuhan terminal 3% (proxy pertumbuhan jangka panjang konservatif).
+- **Pengaman**: hanya dihitung kalau FCF TTM riil positif dan jumlah saham tersedia; hasil yang jauh dari harga riil (di luar 0,1x-10x) dibuang, sama seperti Graham Number.
+
+Modul Investment `investmentSignals` (matriks Varian B lama) juga diganti dengan `investmentLiteralEntryVerdict` - aturan Entry literal dokumen §4B (SEMUA 6 syarat fundamental TRUE sekaligus DAN harga<70% Fair Value) sebagai perbandingan "Alt" yang lebih setia ke dokumen daripada matriks generik §1 sebelumnya (lihat §3.3).
 
 ### 2.3. Logging untuk ML: database eksternal (Supabase)
 

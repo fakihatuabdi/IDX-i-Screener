@@ -422,7 +422,11 @@ footer .mono{font-size:11px;}
 
     <div class="method-block">
       <h3>1c. Label "Alt" di Kartu Swing/Investment</h3>
-      <p>Sejak 2026-09-20, kartu Swing dan Investment kadang menampilkan chip kecil <b>"Alt: [verdict]"</b> di pojok kanan atas. Ini adalah hasil matriks verdict alternatif (persis rumus generik Buku Putih §1 di atas - hitung sinyal sederhana, bukan skor berbobot) yang dihitung <b>berdampingan</b> dengan verdict resmi, khusus untuk dibandingkan datanya seiring waktu - <b>tidak pernah dipakai</b> untuk menentukan ranking, Entry, Target, Stop Loss, atau Max Buy. Chip ini hanya muncul kalau kedua metode benar-benar berbeda hasil. Rencananya, setelah cukup data hasil riil terkumpul (fase Backtesting Kuantitatif, lihat <code>ROADMAP.md</code>), baru diputuskan apakah salah satu metode ini lebih akurat dan layak menggantikan verdict resmi.</p>
+      <p>Sejak 2026-09-20, kartu Swing dan Investment kadang menampilkan chip kecil <b>"Alt: [verdict]"</b> di pojok kanan atas - dihitung <b>berdampingan</b> dengan verdict resmi, cuma untuk dibandingkan seiring waktu, <b>tidak pernah dipakai</b> untuk menentukan ranking, Entry, Target, Stop Loss, atau Max Buy. Rencananya, setelah cukup data hasil riil terkumpul (fase Backtesting Kuantitatif, lihat <code>ROADMAP.md</code>), baru diputuskan apakah salah satu metode pembanding ini lebih akurat dan layak menggantikan verdict resmi. Dua modul ini memakai metode pembanding yang <b>beda</b>:</p>
+      <ul>
+        <li><b>Swing</b>: matriks generik Buku Putih §1 di atas (hitung sinyal sederhana, bukan skor berbobot) - chip muncul kapan pun kedua metode berbeda hasil.</li>
+        <li><b>Investment</b>: aturan Entry literal Buku Putih §4B - <b>SEMUA 6</b> syarat fundamental (ROE, DER, PER&amp;PBV, EPS Growth, Dividend Yield, PEG) harus terpenuhi <i>sekaligus</i> DAN harga di bawah 70% Fair Value. Ini jauh lebih ketat dari skor berbobot yang jadi verdict resmi - memenuhi keenamnya bersamaan sangat jarang terjadi di pasar riil, jadi chip ini <b>cuma muncul saat hasilnya "Buy"</b> (bukan "Hold", supaya tidak jadi noise di hampir semua kartu).</li>
+      </ul>
     </div>
 
     <div class="method-block">
@@ -430,7 +434,12 @@ footer .mono{font-size:11px;}
       <p>Tidak ada lagi persentase flat dari harga close. Semuanya dihitung dari <b>ATR(14)</b> (volatilitas riil saham itu sendiri, metode Wilder) dan struktur support/resistance riil.</p>
       <ul>
         <li><b>Entry Scalping &amp; Swing</b> (Buy/Strong Buy saja) berupa <b>rentang harga</b>, dipilih dari 4 skenario teknikal: breakout confirmed (harga sudah tutup di atas resistance), anticipatory breakout (buy-stop zone <i>di atas</i> harga sekarang, tepat di level resistance), pullback (dari support riil sampai harga close), atau zona sempit di bawah close kalau tidak ada struktur relevan.</li>
-        <li><b>Max Buy Investment</b> (Buy/Strong Buy saja) adalah harga batas atas dari <b>Graham Number</b> (&radic;(22.5 &times; EPS &times; BVPS), memakai EPS/BVPS riil dari laporan keuangan hasil scraper kalau tersedia, atau diturunkan dari PER/PBV kalau belum), dikurangi <b>margin of safety</b> yang disesuaikan oleh DER, ROE, tren ADX mingguan, volume, konsentrasi broker, corporate action mendatang, dan tren pertumbuhan revenue/laba riil.</li>
+        <li><b>Max Buy Investment</b> (Buy/Strong Buy saja) adalah harga batas atas dari <b>Fair Value</b> dikurangi <b>margin of safety</b> yang disesuaikan oleh DER, ROE, tren ADX mingguan, volume, konsentrasi broker, corporate action mendatang, dan tren pertumbuhan revenue/laba riil. Sejak 2026-09-20, Fair Value adalah <b>rata-rata Graham Number dan DCF</b> (kalau dua-duanya bisa dihitung, kalau tidak pakai yang tersedia saja):
+          <ul>
+            <li><b>Graham Number</b>: &radic;(22.5 &times; EPS &times; BVPS) - EPS/BVPS riil dari laporan keuangan hasil scraper kalau tersedia, atau diturunkan dari PER/PBV kalau belum.</li>
+            <li><b>DCF (Discounted Cash Flow)</b>: proyeksi 5 tahun dari Free Cash Flow riil (TTM, jumlah 4 kuartal terakhir dari scraper), tumbuh dengan laju pertumbuhan laba bersih riil historis (dibatasi -15%..+20% supaya satu kuartal anomali tidak diekstrapolasi jadi angka ekstrem), didiskon dengan WACC dari struktur modal riil (DER) dikombinasi asumsi cost of equity/cost of debt yang terbuka/bisa dirujuk (bukan data langsung, karena memang tidak ada sumber real-time untuk ini - lihat <code>ROADMAP.md</code>), plus nilai terminal (Gordon Growth, pertumbuhan jangka panjang 3%). Hanya dihitung kalau FCF riil positif; dilewati (bukan dipaksakan) kalau tidak mendukung.</li>
+          </ul>
+        </li>
         <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss (Sell = aksi jual sekarang di harga close riil).</li>
         <li><b>Stop Loss</b> di-set sejauh jarak ATR, digeser sedikit melewati support/resistance riil terdekat kalau levelnya lebih ketat dari stop berbasis ATR.</li>
         <li><b>Target 1</b> = reward:risk pertama dari jarak risk yang sama; <b>Target 2</b> = objektif lanjutan (level struktural riil lebih jauh kalau ada, atau proyeksi reward:risk yang diperluas).</li>
@@ -818,7 +827,15 @@ footer .mono{font-size:11px;}
     // Experimental parallel verdict matrix (ROADMAP.md §3.3) - only shown when it actually
     // disagrees with the real verdict above, purely informational, never affects ranking or
     // what's recommended.
-    var altVerdictHtml = (s.verdict_b && s.verdict_b!==s.verdict) ? '<span class="indicator-chip" title="Matriks skor konfluensi alternatif (unweighted, eksperimental) - lihat Metodologi">Alt: '+esc(s.verdict_b)+'</span>' : "";
+    // Investment's Alt is a different, stricter check (all 6 fundamental gates AND price
+    // discount vs fair value - see Metodologi) that's rarely true at all, so only surface it
+    // as a positive highlight ("Buy") - showing "Alt: Hold" on nearly every card would just be
+    // noise, unlike Swing's generic matrix where any mismatch is worth a glance.
+    var altTitle = state.strategy==="investment"
+      ? "Lolos SEMUA 6 syarat fundamental dokumen referensi sekaligus (ROE, DER, PER&amp;PBV, EPS Growth, Dividend Yield, PEG) DAN harga di bawah 70% Fair Value - gerbang sangat ketat, jarang terpenuhi. Lihat Metodologi."
+      : "Matriks skor konfluensi alternatif (unweighted, eksperimental) - lihat Metodologi";
+    var altVerdictHtml = (s.verdict_b && s.verdict_b!==s.verdict && (state.strategy!=="investment" || s.verdict_b==="Buy"))
+      ? '<span class="indicator-chip" title="'+altTitle+'">Alt: '+esc(s.verdict_b)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Success Rate ~'+s.potential_pct+'%</span>' : "";
     // Entry is only a thing for Buy/Strong Buy. Scalping/Swing get a real accumulation ZONE
     // (entry_low..entry_high, can sit above today's close for a breakout call). Investment
