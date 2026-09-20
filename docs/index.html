@@ -400,11 +400,24 @@ footer .mono{font-size:11px;}
       <h3>1. Verdict (Strong Buy / Buy / Hold / Sell / Strong Sell)</h3>
       <p>Dihitung dari <b>skor konfluensi</b> - menghitung berapa banyak sinyal riil independen yang searah, bukan mengandalkan satu indikator saja. Sisi bullish dan bearish dihitung terpisah supaya sinyal yang benar-benar bertentangan jatuh ke Hold, bukan dipaksa ke satu arah.</p>
       <ul>
-        <li><b>Scalping</b>: EMA9/21 cross, RVOL, RSI(7), ADX/+DI/-DI, MACD(8,24,9), OBV, breakout/breakdown 20 hari, konsentrasi top-3 broker pembeli. Fundamental 100% tidak dipakai.</li>
+        <li><b>Scalping</b>: sejak 2026-09-20 tidak lagi memakai data harian - diganti scan <b>real-time tiap 5 menit selama jam bursa</b> (09:00&ndash;15:50 WIB) dari data intraday Pluang: VWAP sesi, Micro EMA3/5/9, RSI(7), Order Book Dynamics (rasio bid/ask riil), Tape Reading/HAKA (running trade riil), dan volume breakout terarah. Verdict pakai matriks hitung sinyal sederhana (Bullish&ge;4 &amp; Bearish=0 &rarr; Strong Buy, dst - lihat detail lengkap di bagian bawah), bukan skor berbobot seperti Swing/Investment. Fundamental 100% tidak dipakai. Universe 250 saham teraktif (screening murah tiap siklus), 30 saham paling bergerak di-deep-scan penuh (order book + tape reading).</li>
         <li><b>Swing</b>: SMA20/50 cross, RSI(14), ADX/+DI/-DI, MACD(12,26,9), pola Higher-High/Higher-Low, breakout/breakdown 50 hari, konsentrasi broker. Fundamental 100% tidak dipakai.</li>
-        <li><b>Investment</b>: rating teknikal TradingView + rasio fundamental (ROE/PBV/DER/dividend yield) sebagai faktor terbesar, RSI &amp; ADX <i>mingguan</i>, breakout/breakdown 52 minggu.</li>
+        <li><b>Investment</b>: rating teknikal TradingView + rasio fundamental (ROE/PBV/DER/dividend yield/PEG) sebagai faktor terbesar, RSI &amp; ADX <i>mingguan</i>, breakout/breakdown 52 minggu.</li>
       </ul>
-      <p><b>Success Rate %</b> pada tiap kartu dihitung langsung dari rasio skor konfluensi yang sama (bukan angka terpisah), diskalakan ke rentang 50-90%.</p>
+      <p><b>Success Rate %</b> pada kartu Swing/Investment dihitung langsung dari rasio skor konfluensi yang sama (bukan angka terpisah), diskalakan ke rentang 50-90%. Kartu Scalping real-time menampilkan jumlah sinyal bullish/bearish (dari 6) secara transparan, bukan Success Rate.</p>
+    </div>
+
+    <div class="method-block">
+      <h3>1b. Scalping Real-Time - Detail Matriks Verdict</h3>
+      <p>Enam sinyal riil independen dihitung tiap siklus scan (VWAP, Micro EMA, RSI(7), Volume Breakout, Order Book, Tape Reading), masing-masing bernilai sama rata (tidak berbobot) - persis metodologi "Skor Konfluensi" referensi:</p>
+      <ul>
+        <li><b>Strong Buy</b>: sinyal bullish &ge;4 DAN bearish = 0</li>
+        <li><b>Buy</b>: sinyal bullish &ge;3 DAN bearish &le;1</li>
+        <li><b>Strong Sell</b>: sinyal bearish &ge;4 DAN bullish = 0</li>
+        <li><b>Sell</b>: sinyal bearish &ge;3 DAN bullish &le;1</li>
+        <li><b>Hold</b>: kondisi lain (termasuk sinyal bullish = bearish, benar-benar bertentangan)</li>
+      </ul>
+      <p>Entry/Target 1/Target 2/Stop Loss modul ini memakai persentase tetap dari harga saat sinyal muncul (+1,5% / +3% / -1,5% untuk Buy, kebalikannya untuk Sell) - beda dari Swing/Investment yang berbasis ATR, karena horizon Scalping jauh lebih pendek dan volatilitas intraday belum tentu terbaca akurat dari ATR harian.</p>
     </div>
 
     <div class="method-block">
@@ -453,9 +466,9 @@ footer .mono{font-size:11px;}
   function fmtDateTime(iso){ if(!iso) return "&mdash;"; try{ var d=new Date(iso); return d.toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"})+" WIB"; }catch(e){ return iso; } }
   function esc(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
-  var state = { data:null, strategy:"swing", online:null, view:"dashboard", fundamentals:null, scraperStatus:null };
+  var state = { data:null, strategy:"swing", online:null, view:"dashboard", fundamentals:null, scraperStatus:null, scalpingLive:null };
   var STRATEGY_NOTES = {
-    scalping:"Intraday, 1 hari. Fokus: RVOL&ge;2x, EMA9/21, RSI(7), ADX/MACD/OBV, broker top-3, breakout support/resistance.",
+    scalping:"Real-time, update tiap 5 menit selama jam bursa. Fokus: VWAP, Micro EMA3/5/9, RSI(7), Order Book, Tape Reading (HAKA), volume breakout. Fundamental tidak dipakai.",
     swing:"Beberapa hari - minggu. Fokus: SMA20/50, RSI(14), ADX/MACD, broker top-3, pola Higher-High/Higher-Low.",
     investment:"Bulan - tahun. Fokus: SMA50/SMA200, RSI/ADX mingguan, rating TradingView, fundamental."
   };
@@ -842,23 +855,83 @@ footer .mono{font-size:11px;}
       + '</article>';
   }
   function verdictBucket(v){ if(!v) return "hold"; var lv=v.toLowerCase(); if(lv.indexOf("sell")>=0) return "sell"; if(lv.indexOf("buy")>=0) return "buy"; return "hold"; }
-  function renderGroupedByVerdict(items){
+  function renderGroupedByVerdict(items, cardFn){
+    cardFn = cardFn || stockCard;
     var groups={buy:[],hold:[],sell:[]};
     items.forEach(function(it){ groups[verdictBucket(it.verdict)].push(it); });
     Object.keys(groups).forEach(function(k){ groups[k].sort(function(a,b){return (a.rank||99)-(b.rank||99);}); });
     var order=[{key:"buy",label:"Buy"},{key:"hold",label:"Hold"},{key:"sell",label:"Sell / Waspada"}];
     return order.filter(function(o){return groups[o.key].length;}).map(function(o){
-      return '<div class="verdict-section"><div class="verdict-section-head '+o.key+'"><span class="dot"></span><h3>'+o.label+'</h3><span class="count">('+groups[o.key].length+' saham)</span></div><div class="card-grid">'+groups[o.key].map(stockCard).join("")+'</div></div>';
+      return '<div class="verdict-section"><div class="verdict-section-head '+o.key+'"><span class="dot"></span><h3>'+o.label+'</h3><span class="count">('+groups[o.key].length+' saham)</span></div><div class="card-grid">'+groups[o.key].map(cardFn).join("")+'</div></div>';
     }).join("");
+  }
+  // Real-time Scalping card (docs/data/scalping-live.json, scripts/scalping-scan.mjs) - a
+  // deliberately different shape from stockCard above: no name/cap_tier/fundamentals/chart
+  // (never fetched for this fast intraday scan), instead the 6 real bull/bear signals
+  // (VWAP, Micro EMA, RSI7, Order Book, Tape Reading, Volume Breakout) that actually drove the
+  // verdict, shown transparently rather than folded into one opaque score.
+  var SIGNAL_LABELS = {
+    vwapBull:"Harga &ge; VWAP", vwapBear:"Harga &lt; VWAP",
+    emaBull:"EMA3&gt;EMA5&gt;EMA9", emaBear:"EMA3&lt;EMA5&lt;EMA9",
+    rsiBull:"RSI7 Oversold", rsiBear:"RSI7 Overbought",
+    volBull:"Volume Breakout &uarr;", volBear:"Volume Breakout &darr;",
+    bookBull:"Order Book: Bid Dominan", bookBear:"Order Book: Ask Dominan",
+    tapeBull:"Tape Reading: HAKA", tapeBear:"Tape Reading: Hajar Kiri"
+  };
+  function scalpingLiveCard(s){
+    var verdictHtml = s.verdict ? '<span class="verdict-badge '+verdictClass(s.verdict)+'">'+esc(s.verdict)+'</span>' : "";
+    var changeHtml = s.change_pct!=null ? '<span class="potential-badge">'+(s.change_pct>=0?"+":"")+s.change_pct+'%</span>' : "";
+    var signalChips = Object.keys(s.flags||{}).filter(function(k){return s.flags[k];}).map(function(k){
+      var bull = k.indexOf("Bull")>=0;
+      return '<span class="indicator-chip '+(bull?"cross-bull":"cross-bear")+'">'+(SIGNAL_LABELS[k]||k)+'</span>';
+    }).join("");
+    var badgeRow = '<div class="badge-row">'
+      + (s.rsi7!=null?'<span class="indicator-chip">RSI(7) '+s.rsi7+'</span>':"")
+      + (s.vwap!=null?'<span class="indicator-chip">VWAP Rp'+fmtNum(s.vwap)+'</span>':"")
+      + (s.bid_percent!=null?'<span class="indicator-chip">Bid '+s.bid_percent+'% / Ask '+(100-s.bid_percent)+'%</span>':"")
+      + (s.buy_lots!=null && s.sell_lots!=null ?'<span class="indicator-chip">Tape Beli '+fmtNum(s.buy_lots)+' lot / Jual '+fmtNum(s.sell_lots)+' lot</span>':"")
+      + '</div>';
+    var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
+    var hasLevels = s.entry!=null;
+    var priceGridHtml = hasLevels ? '<div class="price-grid">'
+      + '<div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div>'
+      + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div></div>'
+      + '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>'
+      + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>' : "";
+    var freshness = s.chart_updated_at ? '<div class="source-tag">VWAP/EMA/RSI diperbarui '+fmtDateTime(s.chart_updated_at)+' &middot; order book/tape reading tiap siklus (5 menit)</div>' : "";
+    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+changeHtml+'</div></div>'
+      + '<div class="badge-row">'+signalChips+'</div>'
+      + badgeRow
+      + lastPriceHtml
+      + priceGridHtml
+      + '<div class="tech-line">Sinyal bullish '+s.bull+'/6, bearish '+s.bear+'/6 - fundamental 100% tidak dipakai (murni teknikal intraday).</div>'
+      + freshness
+      + '</article>';
   }
   function renderRecs(d){
     document.getElementById("btnScalping").classList.toggle("active",state.strategy==="scalping");
     document.getElementById("btnSwing").classList.toggle("active",state.strategy==="swing");
     document.getElementById("btnInvestment").classList.toggle("active",state.strategy==="investment");
     document.getElementById("strategyNote").innerHTML=STRATEGY_NOTES[state.strategy];
+    if (state.strategy==="scalping"){
+      // Real-time feed (docs/data/scalping-live.json, tiap 5 menit selama jam bursa) - bukan
+      // dari latest.json/recommendations.scalping lagi. Hanya top ~30 saham paling aktif
+      // bergerak saat ini yang benar-benar di-deep-scan (order book + tape reading); sisanya
+      // dari 250 saham yang dipantau cuma discreening murah dan tidak dapat kartu tersendiri.
+      var sl=state.scalpingLive;
+      document.getElementById("recsHead").textContent="Saham Bullish IHSG — Scalping (Real-Time)";
+      if (!sl){
+        document.getElementById("recsSub").textContent="Memuat data real-time...";
+        document.getElementById("cardGrid").innerHTML='<p class="empty-note">Data scan real-time belum tersedia. Update otomatis tiap 5 menit selama jam bursa (09:00&ndash;15:50 WIB, Senin&ndash;Jumat).</p>';
+        return;
+      }
+      document.getElementById("recsSub").textContent="Update "+fmtDateTime(sl.generated_at)+" &middot; "+sl.hot_count+" dari "+sl.universe_count+" saham dipantau sedang di-deep-scan &middot; tiap 5 menit selama jam bursa";
+      var items=sl.items||[];
+      document.getElementById("cardGrid").innerHTML = items.length ? renderGroupedByVerdict(items, scalpingLiveCard) : '<p class="empty-note">Belum ada saham yang di-deep-scan siklus ini (di luar jam bursa, atau baru saja dimulai).</p>';
+      return;
+    }
     var rec=d.recommendations||{}, items=[];
-    if (state.strategy==="scalping"){ var sc=rec.scalping||{}; items=sc.items||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Scalping"; document.getElementById("recsSub").textContent=sc.session_note||"Intraday"; }
-    else if (state.strategy==="investment"){ var iv=rec.investment||{}; items=iv.items||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Investment"; document.getElementById("recsSub").textContent="Horizon panjang"; }
+    if (state.strategy==="investment"){ var iv=rec.investment||{}; items=iv.items||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Investment"; document.getElementById("recsSub").textContent="Horizon panjang"; }
     else { items=rec.swing||[]; document.getElementById("recsHead").textContent="Saham Bullish IHSG — Swing"; document.getElementById("recsSub").textContent="Update harian 19:00 WIB"; }
     document.getElementById("cardGrid").innerHTML = items.length ? renderGroupedByVerdict(items) : '<p class="empty-note">Belum ada rekomendasi.</p>';
   }
@@ -1052,6 +1125,14 @@ footer .mono{font-size:11px;}
       state.online = false;
       computeStatus();
     });
+    // Real-time Scalping feed - refreshed every 5 minutes server-side during trading hours
+    // (scripts/scalping-scan.mjs), polled here on the same 60s loop as the main dashboard. A
+    // 404 just means the scan hasn't run yet today (or it's outside trading hours) - not an
+    // error, renderRecs already shows an honest "not available yet" message for that case.
+    fetch("./data/scalping-live.json?t=" + Date.now()).then(function(r){ return r.ok ? r.json() : null; }).then(function(json){
+      state.scalpingLive = json;
+      if (state.data) render();
+    }).catch(function(){});
   }
   load();
   setInterval(load, 60000); // pick up a same-day re-run automatically if the page stays open
