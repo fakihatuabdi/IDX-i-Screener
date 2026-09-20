@@ -90,6 +90,12 @@ async function main() {
       const yearAgo = rows.find((p) => p.year === r.year - 1 && p.period === r.period);
       const revenueGrowthYoy = yearAgo?.revenue ? ((r.revenue - yearAgo.revenue) / Math.abs(yearAgo.revenue)) * 100 : null;
       const netIncomeGrowthYoy = yearAgo?.net_income ? ((r.net_income - yearAgo.net_income) / Math.abs(yearAgo.net_income)) * 100 : null;
+      // EPS growth specifically (not just net_income growth) - PEG's own convention divides
+      // PER by EPS growth, and the two diverge whenever outstanding share count changed
+      // year-over-year (buyback/rights issue/etc.), so this is computed from real per-share EPS
+      // on both sides rather than reused from netIncomeGrowthYoy.
+      const yearAgoEps = yearAgo && yearAgo.outstanding_shares > 0 && yearAgo.net_income != null ? yearAgo.net_income / yearAgo.outstanding_shares : null;
+      const epsGrowthYoy = yearAgoEps ? ((eps - yearAgoEps) / Math.abs(yearAgoEps)) * 100 : null;
       return {
         ...r,
         eps: round2(eps),
@@ -101,17 +107,25 @@ async function main() {
         npm: round2(npm),
         revenue_growth_yoy: round2(revenueGrowthYoy),
         net_income_growth_yoy: round2(netIncomeGrowthYoy),
+        eps_growth_yoy: round2(epsGrowthYoy),
       };
     });
     totalQuarters += enriched.length;
     const snapshot = snapshotByTicker.get(ticker) || {};
+    const latest = enriched[enriched.length - 1] || null;
+    // PEG = PER / EPS growth YoY (%) - only meaningful for a company actually growing (PEG on
+    // negative or zero growth is undefined by convention, not a real "attractive" low number),
+    // and only computed from real snapshot PER + real historical EPS growth above, never a
+    // forecast.
+    const peg = snapshot.per > 0 && latest?.eps_growth_yoy > 0 ? round2(snapshot.per / latest.eps_growth_yoy) : null;
     tickers[ticker] = {
       name: nameByTicker.get(ticker) || null,
       per: snapshot.per ?? null,
       pbv: snapshot.pbv ?? null,
       dividend_yield: snapshot.dividend_yield ?? null,
+      peg,
       quarters: enriched,
-      latest: enriched[enriched.length - 1] || null,
+      latest,
     };
   }
 

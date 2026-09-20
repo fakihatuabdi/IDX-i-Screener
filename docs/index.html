@@ -1010,6 +1010,7 @@ footer .mono{font-size:11px;}
     if (entry.per!=null) snapshotBits.push('<span class="fund-snap-chip">PER <b>'+entry.per.toFixed(1)+'x</b></span>');
     if (entry.pbv!=null) snapshotBits.push('<span class="fund-snap-chip">PBV <b>'+entry.pbv.toFixed(2)+'x</b></span>');
     if (entry.dividend_yield!=null) snapshotBits.push('<span class="fund-snap-chip">Dividend Yield <b>'+entry.dividend_yield.toFixed(2)+'%</b></span>');
+    if (entry.peg!=null) snapshotBits.push('<span class="fund-snap-chip">PEG <b>'+entry.peg.toFixed(2)+'x</b></span>');
     var snapshotRow = snapshotBits.length ? '<div class="fund-snap-row">'+snapshotBits.join("")+'<span class="fund-snap-note">(rasio valuasi saat ini, bukan per kuartal historis)</span></div>' : "";
     var heading = '<div class="fund-ticker-heading"><span class="fund-ticker-code">'+esc(ticker)+'</span>'+(entry.name?'<span class="fund-ticker-name">'+esc(entry.name)+'</span>':"")+'</div>'+snapshotRow;
     if (!entry.quarters || !entry.quarters.length){
