@@ -45,9 +45,21 @@ jobs:
 
       - name: Commit updated data
         if: always()
+        # Three workflows now commit to docs/data/ independently (this one, recovery-watchdog,
+        # and fundamental-scraper) - a plain `git push` can get rejected if another one pushed
+        # first in between this job's checkout and this step. Retry with a rebase onto
+        # whatever's newly on origin (never --force: a genuine rebase, so nobody's commit gets
+        # silently dropped) instead of just failing the whole run over a normal race.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data/latest.json docs/data/track-record.json
           git diff --staged --quiet || git commit -m "Automated dashboard update $(date -u +'%Y-%m-%d %H:%M UTC')"
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            echo "Push rejected (attempt $i/5) - fetching and rebasing before retry"
+            git fetch origin
+            git rebase origin/main
+            sleep $((i * 5))
+          done
           git push

@@ -82,9 +82,19 @@ jobs:
 
       - name: Commit updated data
         if: always() && steps.decide.outputs.run == 'true'
+        # Retry with a rebase if another workflow (daily-update/fundamental-scraper) pushed to
+        # docs/data/ first - a normal race between independent scheduled workflows, not a real
+        # conflict (never --force, so nobody's commit gets silently dropped).
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data/latest.json docs/data/track-record.json
           git diff --staged --quiet || git commit -m "Recovery watchdog update $(date -u +'%Y-%m-%d %H:%M UTC')"
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            echo "Push rejected (attempt $i/5) - fetching and rebasing before retry"
+            git fetch origin
+            git rebase origin/main
+            sleep $((i * 5))
+          done
           git push
