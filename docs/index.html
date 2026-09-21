@@ -220,6 +220,8 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .pct-gap{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--text-muted); background:var(--surface-2,var(--surface)); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
 .pct-gap.warn{color:var(--critical); background:var(--critical-soft);}
 .pct-gain{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--good); background:var(--good-soft); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
+.pct-gain.down{color:var(--critical); background:var(--critical-soft);}
+.margin-badge{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:20px; padding:3px 9px; display:inline-block;}
 .catalyst{font-size:12.5px; color:var(--text-2); text-align:justify; text-justify:inter-word;} .catalyst b{color:var(--text-1);}
 .source-tag{font-size:10.5px; color:var(--text-muted); text-align:left;}
 .tech-line{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--text-2); background:var(--surface); padding:6px 8px; border-radius:5px;}
@@ -452,6 +454,7 @@ footer .mono{font-size:11px;}
         <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss (Sell = aksi jual sekarang di harga close riil).</li>
         <li><b>Stop Loss</b> di-set sejauh jarak ATR, digeser sedikit melewati support/resistance riil terdekat kalau levelnya lebih ketat dari stop berbasis ATR.</li>
         <li><b>Target 1</b> = reward:risk pertama dari jarak risk yang sama; <b>Target 2</b> = objektif lanjutan (level struktural riil lebih jauh kalau ada, atau proyeksi reward:risk yang diperluas).</li>
+        <li>Setiap Target 1/2 (2026-09-20) diberi label persentase riil dari harga sekarang - dihitung dengan cara yang <b>sama</b> untuk Buy maupun Sell, jadi tandanya sendiri yang bicara: <b>hijau (+)</b> berarti target di atas harga sekarang (tesis Buy), <b>merah (&minus;)</b> berarti di bawah (tesis Sell). Ini menghindari ambiguitas kartu Sell yang sebelumnya menampilkan Target 1 &gt; Target 2 dalam Rupiah mentah tanpa konteks arah.</li>
       </ul>
     </div>
 
@@ -846,6 +849,10 @@ footer .mono{font-size:11px;}
     var altVerdictHtml = (s.verdict_b && s.verdict_b!==s.verdict && (state.strategy!=="investment" || s.verdict_b==="Buy"))
       ? '<span class="indicator-chip" title="'+altTitle+'">Alt: '+esc(s.verdict_b)+'</span>' : "";
     var potentialHtml = s.potential_pct!=null ? '<span class="potential-badge">&#9733; Success Rate ~'+s.potential_pct+'%</span>' : "";
+    // Margin of Safety highlighted right next to Success Rate (Buy/Strong Buy Investment only)
+    // - a different color on purpose, so it reads as a related-but-distinct metric rather than
+    // part of the Success Rate badge itself. See computeMarginOfSafety di lib/pipeline.mjs.
+    var marginBadgeHtml = s.margin_of_safety_pct!=null ? '<span class="margin-badge" title="Margin of Safety - diskon dari Fair Value (rata-rata Graham Number + DCF) ke Max Buy">MoS '+s.margin_of_safety_pct+'%</span>' : "";
     // Entry is only a thing for Buy/Strong Buy. Scalping/Swing get a real accumulation ZONE
     // (entry_low..entry_high, can sit above today's close for a breakout call). Investment
     // instead gets a single fundamental-led "Max Buy" ceiling. Sell/Strong Sell and Hold carry
@@ -854,12 +861,15 @@ footer .mono{font-size:11px;}
     var isBuyCall = s.verdict && s.verdict.indexOf("Buy")!==-1;
     var hasEntry = isBuyCall && s.entry_low!=null && s.entry_high!=null;
     var hasMaxBuy = isBuyCall && s.max_buy!=null;
-    var refPrice = hasEntry ? s.entry_high : hasMaxBuy ? s.max_buy : null;
-    // Real potential gain: % distance from the reference entry price (top of the zone for
-    // Scalping/Swing, or the Max Buy ceiling for Investment - both the conservative, worst-case
-    // real price target1/stop-loss were actually derived from) to target1.
-    var gainPct = (refPrice && s.target1!=null) ? Math.round((s.target1-refPrice)/refPrice*1000)/10 : null;
-    var gainPctHtml = gainPct!=null ? '<div class="pct-gain">+'+gainPct+'%</div>' : "";
+    // % from today's real price to each target - computed the SAME way regardless of
+    // direction (Buy or Sell), so the sign itself always tells the story: positive means the
+    // target sits above today's price (a Buy thesis), negative means below (a Sell thesis) -
+    // removes the old ambiguity where Sell cards showed Target 1 > Target 2 in raw Rupiah with
+    // no context, looking backwards at a glance.
+    function pctVsLast(target){ return (target!=null && s.last_price) ? Math.round((target-s.last_price)/s.last_price*1000)/10 : null; }
+    function pctBadge(pct){ return pct!=null ? '<div class="pct-gain'+(pct<0?" down":"")+'">'+(pct>=0?"+":"")+pct+'%</div>' : ""; }
+    var target1PctHtml = pctBadge(pctVsLast(s.target1));
+    var target2PctHtml = pctBadge(pctVsLast(s.target2));
     var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir (Close)</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
     var entryCellHtml = "";
     if (hasEntry){
@@ -873,17 +883,14 @@ footer .mono{font-size:11px;}
       // the fundamental-led ceiling (already pricier than our margin-of-safety allows).
       var maxBuyGapPct = s.last_price ? Math.round((s.max_buy-s.last_price)/s.last_price*1000)/10 : null;
       var maxBuyGapHtml = maxBuyGapPct!=null ? '<div class="pct-gap'+(maxBuyGapPct<0?" warn":"")+'">'+(maxBuyGapPct>=0?"+":"")+maxBuyGapPct+'% vs sekarang</div>' : "";
-      // Real margin-of-safety % actually applied to discount Fair Value into Max Buy - see
-      // computeMarginOfSafety di lib/pipeline.mjs (Metodologi §2 untuk rincian sumbernya).
-      var marginHtml = s.margin_of_safety_pct!=null ? '<div class="pct-gap" title="Margin of Safety - diskon dari Fair Value (rata-rata Graham Number + DCF) ke Max Buy">MoS '+s.margin_of_safety_pct+'%</div>' : "";
-      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+marginHtml+'</div>';
+      entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+'</div>';
     }
-    var target2Html = s.target2!=null ? '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>' : "";
+    var target2Html = s.target2!=null ? '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div>'+target2PctHtml+'</div>' : "";
     var priceGridHtml = '<div class="price-grid">'+entryCellHtml
-      + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+gainPctHtml+'</div>'
+      + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+target1PctHtml+'</div>'
       + target2Html
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
-    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+altVerdictHtml+'</div></div>'
+    return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+marginBadgeHtml+altVerdictHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
       + lastPriceHtml
       + priceGridHtml
