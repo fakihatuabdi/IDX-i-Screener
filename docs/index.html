@@ -452,10 +452,17 @@ footer .mono{font-size:11px;}
           </ul>
           Dibatasi 15%-45%. Sinyal teknikal (ADX mingguan, RVOL, konsentrasi broker, corporate action) sengaja <b>tidak lagi</b> dipakai di sini - itu konsep timing/momentum, bukan konsep margin of safety dari literatur value investing.
         </li>
-        <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss (Sell = aksi jual sekarang di harga close riil).</li>
+        <li><b>Sell/Strong Sell dan Hold</b> tidak punya Entry/Max Buy - hanya Target 1, Target 2, dan Stop Loss.</li>
         <li><b>Stop Loss</b> di-set sejauh jarak ATR, digeser sedikit melewati support/resistance riil terdekat kalau levelnya lebih ketat dari stop berbasis ATR.</li>
         <li><b>Target 1</b> = reward:risk pertama dari jarak risk yang sama; <b>Target 2</b> = objektif lanjutan (level struktural riil lebih jauh kalau ada, atau proyeksi reward:risk yang diperluas).</li>
         <li>Setiap Target 1/2 (2026-09-20) diberi label persentase riil dari harga sekarang - dihitung dengan cara yang <b>sama</b> untuk Buy maupun Sell, jadi tandanya sendiri yang bicara: <b>hijau (+)</b> berarti target di atas harga sekarang (tesis Buy), <b>merah (&minus;)</b> berarti di bawah (tesis Sell). Ini menghindari ambiguitas kartu Sell yang sebelumnya menampilkan Target 1 &gt; Target 2 dalam Rupiah mentah tanpa konteks arah.</li>
+        <li><b>Kartu Sell/Strong Sell dirombak (2026-09-21)</b> menjadi <b>panduan keluar</b> untuk yang sudah memegang saham - bukan setup short-sell yang bisa langsung dieksekusi. Alasannya: mayoritas investor ritel IDX tidak punya akses mudah ke short selling (butuh fasilitas margin trading khusus), jadi label "Stop Loss" di ATAS harga sekarang (matematis benar untuk posisi short, tapi terlihat terbalik kalau dibaca sebagai "rugi") berpotensi disalahartikan. Angka di baliknya <b>tidak berubah</b> (tetap level ATR/struktural riil yang sama) - cuma label dan framing-nya:
+          <ul>
+            <li><b>Target 1/2</b> &rarr; <b>"Proyeksi Turun 1/2"</b>: seberapa jauh saham ini secara riil masih bisa turun, bukan target profit posisi short.</li>
+            <li><b>Stop Loss</b> &rarr; <b>"Level Waspada"</b>: kalau harga naik balik melewati level ini, thesis bearish/jual mulai diragukan - sinyal untuk meninjau ulang, bukan trigger stop-loss posisi short.</li>
+            <li>Kartu Scalping Sell juga tidak lagi menampilkan sel "Entry" terpisah (sebelumnya cuma mengulang harga yang sama seperti "Harga Terakhir", menyiratkan "masuk short di harga ini").</li>
+          </ul>
+        </li>
       </ul>
     </div>
 
@@ -891,11 +898,25 @@ footer .mono{font-size:11px;}
     // to the target. isSellCall reuses the same verdict check as isBuyCall above.
     var isSellCall = s.verdict && s.verdict.indexOf("Sell")!==-1;
     var targetDirCls = isSellCall ? " down" : "";
-    var target2Html = s.target2!=null ? '<div class="price-cell target2'+targetDirCls+'"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div>'+target2PctHtml+'</div>' : "";
+    // Sell/Strong Sell cards (2026-09-21, at the user's request) are reframed as an EXIT GUIDE
+    // for someone who already holds the stock - not a tradeable short-sell setup. Most IDX
+    // retail investors can't easily short (needs a margin-trading facility most don't have),
+    // so a literal "Stop Loss for your short position" framing was actively misleading (a
+    // stop ABOVE today's price reads as backwards unless you already think in short-position
+    // terms). The real number underneath is unchanged (still the same real ATR/structural
+    // level - see computeDirectionalLevels/computeInvestmentLevels) - only the label and
+    // framing change: it's now "Level Waspada", the real price level where this bearish
+    // read would be invalidated (thesis is wrong if price recovers past it), not a short's
+    // stop-loss trigger.
+    var target1Label = isSellCall ? "Proyeksi Turun 1" : "Target 1";
+    var target2Label = isSellCall ? "Proyeksi Turun 2" : "Target 2";
+    var slLabel = isSellCall ? "Level Waspada" : "Stop Loss";
+    var slTitle = isSellCall ? ' title="Kalau harga naik balik melewati level ini, thesis bearish/jual mulai diragukan - bukan stop-loss posisi short"' : "";
+    var target2Html = s.target2!=null ? '<div class="price-cell target2'+targetDirCls+'"><div class="lbl">'+target2Label+'</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div>'+target2PctHtml+'</div>' : "";
     var priceGridHtml = '<div class="price-grid">'+entryCellHtml
-      + '<div class="price-cell target'+targetDirCls+'"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+target1PctHtml+'</div>'
+      + '<div class="price-cell target'+targetDirCls+'"><div class="lbl">'+target1Label+'</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+target1PctHtml+'</div>'
       + target2Html
-      + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
+      + '<div class="price-cell sl"'+slTitle+'><div class="lbl">'+slLabel+'</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+marginBadgeHtml+altVerdictHtml+'</div></div>'
       + badgeRow + renderCandles(s.candles,320,230,ma.overlays,state.strategy==="investment"?"Mingguan (3 Bulan)":"Harian (1 Bulan)")
       + lastPriceHtml
@@ -957,7 +978,14 @@ footer .mono{font-size:11px;}
     var lastPriceHtml = s.last_price!=null ? '<div class="last-price-row"><span>Harga Terakhir</span><span class="val tab-nums">Rp'+fmtNum(s.last_price)+'</span></div>' : "";
     // Max Buy: real execution-slippage ceiling above the scanned entry price (see
     // lib/scalping.mjs scalpingLevels) - "range yang aman" is Entry..Max Buy.
-    var hasEntry = s.entry!=null;
+    var isSellCall = s.verdict && s.verdict.indexOf("Sell")!==-1;
+    // Sell/Strong Sell (2026-09-21, at the user's request) is an EXIT GUIDE for someone who
+    // already holds the stock, not a tradeable short setup - see stockCard's same reframe for
+    // why. The "Entry" cell (= just today's real price again, per lib/scalping.mjs
+    // scalpingLevels) is skipped entirely for Sell here since it would be redundant with
+    // "Harga Terakhir" above and implies "enter a short at this price", which most IDX retail
+    // investors can't actually do.
+    var hasEntry = s.entry!=null && !isSellCall;
     var entryCellHtml = hasEntry
       ? '<div class="price-cell entry"><div class="lbl">Entry</div><div class="val tab-nums">'+fmtNum(s.entry)+'</div></div>'
         + (s.max_buy!=null ? '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div></div>' : "")
@@ -965,11 +993,15 @@ footer .mono{font-size:11px;}
     // Target price color follows real direction, not a fixed green - see stockCard's same fix
     // (docs/index.html §Swing/Investment) for why: green universally implies "buy/up", which
     // would mislead on a Sell card where the target is a FALLING price.
-    var targetDirCls = (s.verdict && s.verdict.indexOf("Sell")!==-1) ? " down" : "";
-    var priceGridHtml = hasEntry ? '<div class="price-grid">'+entryCellHtml
-      + '<div class="price-cell target'+targetDirCls+'"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div></div>'
-      + '<div class="price-cell target2'+targetDirCls+'"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>'
-      + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>' : "";
+    var targetDirCls = isSellCall ? " down" : "";
+    var target1Label = isSellCall ? "Proyeksi Turun 1" : "Target 1";
+    var target2Label = isSellCall ? "Proyeksi Turun 2" : "Target 2";
+    var slLabel = isSellCall ? "Level Waspada" : "Stop Loss";
+    var slTitle = isSellCall ? ' title="Kalau harga naik balik melewati level ini, thesis bearish/jual mulai diragukan - bukan stop-loss posisi short"' : "";
+    var priceGridHtml = (hasEntry || isSellCall) ? '<div class="price-grid">'+entryCellHtml
+      + '<div class="price-cell target'+targetDirCls+'"><div class="lbl">'+target1Label+'</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div></div>'
+      + '<div class="price-cell target2'+targetDirCls+'"><div class="lbl">'+target2Label+'</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div></div>'
+      + '<div class="price-cell sl"'+slTitle+'><div class="lbl">'+slLabel+'</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>' : "";
     var freshness = s.chart_updated_at ? 'VWAP/EMA/RSI diperbarui '+fmtDateTime(s.chart_updated_at)+' &middot; order book/tape reading tiap siklus (5 menit)' : "";
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div>'+(s.name?'<div class="stock-full-name">'+esc(s.name)+'</div>':"")+'</div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+changeHtml+altVerdictHtml+'</div></div>'
       + badgeRow
