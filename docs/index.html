@@ -215,6 +215,7 @@ h1,h2,h3{text-wrap:balance; margin:0;}
 .price-cell .val{font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:14px; margin-top:2px;}
 .price-cell .val.range{font-size:12px;}
 .price-cell.entry .val{color:var(--accent);} .price-cell.target .val{color:var(--good);} .price-cell.target2 .val{color:var(--good);} .price-cell.sl .val{color:var(--critical);}
+.price-cell.target.down .val, .price-cell.target2.down .val{color:var(--critical);}
 .last-price-row{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--text-muted); padding:0 2px; margin-bottom:6px;}
 .last-price-row .val{font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--text-1); font-size:13px;}
 .pct-gap{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:800; color:var(--text-muted); background:var(--surface-2,var(--surface)); border-radius:4px; padding:1px 5px; margin-top:3px; display:inline-block;}
@@ -885,9 +886,14 @@ footer .mono{font-size:11px;}
       var maxBuyGapHtml = maxBuyGapPct!=null ? '<div class="pct-gap'+(maxBuyGapPct<0?" warn":"")+'">'+(maxBuyGapPct>=0?"+":"")+maxBuyGapPct+'% vs sekarang</div>' : "";
       entryCellHtml = '<div class="price-cell entry"><div class="lbl">Max Buy</div><div class="val tab-nums">'+fmtNum(s.max_buy)+'</div>'+maxBuyGapHtml+'</div>';
     }
-    var target2Html = s.target2!=null ? '<div class="price-cell target2"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div>'+target2PctHtml+'</div>' : "";
+    // Target price color follows real direction, not a fixed green - green implies "buy/up"
+    // universally, which would mislead on a Sell card where the whole point is price FALLING
+    // to the target. isSellCall reuses the same verdict check as isBuyCall above.
+    var isSellCall = s.verdict && s.verdict.indexOf("Sell")!==-1;
+    var targetDirCls = isSellCall ? " down" : "";
+    var target2Html = s.target2!=null ? '<div class="price-cell target2'+targetDirCls+'"><div class="lbl">Target 2</div><div class="val tab-nums">'+fmtNum(s.target2)+'</div>'+target2PctHtml+'</div>' : "";
     var priceGridHtml = '<div class="price-grid">'+entryCellHtml
-      + '<div class="price-cell target"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+target1PctHtml+'</div>'
+      + '<div class="price-cell target'+targetDirCls+'"><div class="lbl">Target 1</div><div class="val tab-nums">'+fmtNum(s.target1)+'</div>'+target1PctHtml+'</div>'
       + target2Html
       + '<div class="price-cell sl"><div class="lbl">Stop Loss</div><div class="val tab-nums">'+fmtNum(s.stop_loss)+'</div></div></div>';
     return '<article class="stock-card"><div class="stock-card-head"><div class="stock-name"><div class="stock-ticker">'+esc(s.ticker)+'</div><div class="stock-full-name">'+esc(s.name)+'</div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">'+verdictHtml+potentialHtml+marginBadgeHtml+altVerdictHtml+'</div></div>'
